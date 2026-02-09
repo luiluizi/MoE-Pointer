@@ -1,0 +1,21 @@
+numpy
+torch
+gymnasium
+dm-tree
+wandb
+pyyaml
+python-geohash
+pandas
+tensorboardX
+
+conda create -n VRP python=3.9 \
+  numpy \
+  pytorch torchvision torchaudio cudatoolkit=11.7 -c pytorch \
+  gymnasium \
+  dm-tree -c conda-forge \
+  wandb -c conda-forge \
+  pyyaml \
+  python-geohash \
+  -c conda-forge
+
+  conda create -n drone python=3.10 -y

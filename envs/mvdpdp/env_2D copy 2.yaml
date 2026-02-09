@@ -1,0 +1,68 @@
+scenario: synthetic-2D
+interruptable: False
+use_sp: True
+
+n_frame: 80
+n_requested_frame: 60
+n_node: 30
+n_courier: 12
+n_station: 5
+n_drone: 5
+min_direct_dist: 10
+gen_mode: "direct"
+
+n_init_requests: 20
+n_norm_requests: 130
+max_consider_requests: -1
+
+max_capacity: 5
+dist_distribution: 2D
+max_dist: 10
+n_node_tot: 100
+
+dist_cost: 0
+dist_cost_drone: 0
+dist_cost_courier: 0
+dist_req_profit: 1
+
+# dist_cost: 0
+# dist_cost_drone: 0
+# dist_cost_courier: 0
+# dist_req_profit: 1
+
+info_batch_size: 0
+debug: False
+
+# 环境应约满足以下等式。
+# max_dist/2 * (n_init_requests + n_norm_requests) == n_vehicle * n_frame * (max_capacity / 2)
+# max_value 下的reward估算：n_vehicle * n_frame * (max_capacity / 2)
+
+# scenario: synthetic-2D
+# interruptable: False
+# use_sp: True
+
+# n_frame: 150
+# n_requested_frame: 100
+# n_node: 50
+# n_courier: 30
+# n_station: 10
+# n_drone: 20
+# min_direct_dist: 10
+# gen_mode: "direct"
+
+# n_init_requests: 30
+# n_norm_requests: 500
+# max_consider_requests: -1
+
+# max_capacity: 5
+# dist_distribution: 2D
+# max_dist: 10
+# n_node_tot: 144
+
+# dist_cost: 0.5
+# dist_cost_drone: 0.15
+# dist_cost_courier: 0.1
+# dist_req_profit: 1
+
+# info_batch_size: 0
+# debug: False
