@@ -145,11 +145,11 @@ class DroneTransferEnvLADE(DroneTransferEnv):
         self.load_dataset()
         
         if self.is_train:
-            self.batch_size = kwargs["sample_batch_size"]
+            self.batch_size = kwargs["batch_size"]
         else:
             # 使用测试集数据
             test_from = self.cached.get("test_requests_from", self.cached.get("train_requests_from"))
-            self.batch_size = min(test_from.shape[0], kwargs["sample_batch_size"])
+            self.batch_size = min(test_from.shape[0], kwargs["batch_size"])
         
         self.info_batch_size = self.batch_size if self.env_args["info_batch_size"] == -1 else self.env_args["info_batch_size"]
         

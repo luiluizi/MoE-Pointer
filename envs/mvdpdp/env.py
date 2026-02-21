@@ -32,7 +32,7 @@ class DroneTransferEnv(MultiAgentEnv):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.env_args = kwargs["env_args"]
-        self.batch_size = kwargs["sample_batch_size"]
+        self.batch_size = kwargs["batch_size"]
         self.use_sp = self.env_args["use_sp"]
         self.deliveryed_visible = self.env_args["deliveryed_visible"]
         self.info_batch_size = self.batch_size if self.env_args["info_batch_size"] == -1 else self.env_args["info_batch_size"]

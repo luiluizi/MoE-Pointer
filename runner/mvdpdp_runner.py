@@ -220,17 +220,11 @@ class MVDPDPRunner:
             # eval
             if (episode + 1) % self.eval_interval == 0 and self.use_eval:
                 eval_episode_rewards_mean = self.eval(total_num_steps)
-                # Hot Fix
-                best_episode_ratio = 0.0 if (not self.all_args.not_use_tsp and not self.all_args.not_use_ar) else 0.0
-                if episode >= best_episode_ratio * n_episode_batch:
-                    if max_aver_reward is None or eval_episode_rewards_mean > max_aver_reward:
-                        max_aver_reward = eval_episode_rewards_mean
-                        self.save(episode, is_best=True)
+                if max_aver_reward is None or eval_episode_rewards_mean > max_aver_reward:
+                    max_aver_reward = eval_episode_rewards_mean
+                    self.save(episode, is_best=True)
             end1 = time.time()
             self.logger.info(f"one epoch time {end1 - start1}" )
-            # sys.stdout.flush()
-            # sys.stderr.flush()
-
 
     def warmup(self):
         # reset env

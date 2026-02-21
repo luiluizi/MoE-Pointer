@@ -1,50 +1,39 @@
-#!/usr/bin/env python
-import sys
 import os
+import sys
 import socket
-# import setproctitle
-from pathlib import Path
-
+import setproctitle
+import torch
 import wandb
 import yaml
 import numpy as np
-import torch
-from torch.profiler import profile, ProfilerActivity
 
+from pathlib import Path
 from config import get_config
-# from envs.mvdpdp.mvdpdp import DiscreteMVDPDP, DiscreteMVDPDPDHRD
 from envs.mvdpdp.env import DroneTransferEnv
-from envs.mvdpdp.env_for_DHRD import DroneTransferEnvDHRD
 from envs.mvdpdp.env_lade import DroneTransferEnvLADE
-# from envs.mvdpdp.mvdpdp import DiscreteMVDPDPDHRD
 from runner.mvdpdp_runner import MVDPDPRunner as Runner
 from utils.util import get_logger
 
 
 def make_env(all_args, env_args, device, is_train):
     assert all_args.env_name == "mvdpdp"
-    sample_batch_size = all_args.n_rollout_threads if is_train else all_args.eval_episodes
+    batch_size = all_args.n_rollout_threads if is_train else all_args.eval_episodes
     kwargs = {
         "env_args": env_args,
-        "sample_batch_size": sample_batch_size,
+        "batch_size": batch_size,
         "device": device,
         "algorithm": all_args.algorithm,
         "is_train": is_train,
-        "use_tsp": not all_args.not_use_tsp,
         "use_ar": not all_args.not_use_ar,
         "seed": all_args.seed,
         "seed_env": all_args.seed_env,
     }
-    if "dhrd" in env_args["scenario"]:
-        env = DroneTransferEnvDHRD(**kwargs, place=all_args.dataset, suffix="train" if not all_args.only_eval else "test")
-    elif "lade" in env_args["scenario"]:
+    if "lade" in env_args["scenario"]:
         env = DroneTransferEnvLADE(**kwargs, city=all_args.dataset)
     else:
         env = DroneTransferEnv(**kwargs)
-    
     if not is_train:
         all_args.eval_episode = env.batch_size
-
     return env
 
 def parse_args(args, parser):
@@ -74,9 +63,7 @@ def main(args):
         env_args = yaml.load(_file, yaml.Loader)
     env_args["deliveryed_visible"] = all_args.algorithm in ["mapdp"]
     env_args["max_consider_requests"] = -1 if all_args.algorithm in ["mapdp", "prob_heuristic", "sa", "ga", "nearest", "cpast"] else env_args["max_consider_requests"]
-    if env_args["scenario"] == "dhrd":
-        env_args["scenario"] = f"dhrd-{all_args.dataset}"
-    elif env_args["scenario"] == "lade":
+    if env_args["scenario"] == "lade":
         env_args["scenario"] = f"lade-{all_args.dataset}"
     elif "2D" not in env_args["scenario"]:
         all_args.not_use_node_emb = False
@@ -92,6 +79,7 @@ def main(args):
 
     # cuda
     if all_args.cuda and torch.cuda.is_available():
+        # 这里改一下：如果有指定的gpu id则使用该gpu，没有的话就使用第一个gpu
         print("choose to use gpu...")
         device = torch.device(f"cuda:{all_args.gpu_id}")
         torch.set_num_threads(all_args.n_training_threads)
@@ -103,8 +91,6 @@ def main(args):
         device = torch.device("cpu")
         torch.set_num_threads(all_args.n_training_threads)
 
-    # device = torch.device("cpu")
-    # torch.set_num_threads(all_args.n_training_threads)
     run_dir = Path("/mnt/jfs6/g-bairui/results") / all_args.env_name / env_args["scenario"] / all_args.algorithm / str(all_args.gpu_id)
     if not all_args.only_eval and not run_dir.exists():
         os.makedirs(str(run_dir))
@@ -129,7 +115,7 @@ def main(args):
         with (run_dir / "config.yaml").open("w") as file:
             yaml.dump(vars(all_args), file)
 
-    # setproctitle.setproctitle(str(all_args.algorithm) + "-" + str(all_args.env_name))
+    setproctitle.setproctitle(str(all_args.algorithm) + "-" + str(all_args.env_name))
 
     # seed
     torch.manual_seed(all_args.seed)
@@ -156,25 +142,10 @@ def main(args):
         for k, v in env_args.items():
             runner.writter.add_text("env:" + k, str(v))
 
-    # if all_args.profile:
-    #     prof = profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True, with_stack=True)
-    #     prof.__enter__()
-
     if all_args.only_eval:
         runner.eval(None)
     else:
         runner.run()
-
-    #     # post process
-    #     if all_args.use_wandb:
-    #         run.finish()
-    #     else:
-    #         runner.writter.export_scalars_to_json(str(runner.log_dir + '/summary.json'))
-    #         runner.writter.close()
-    
-    # if all_args.profile:
-    #     prof.__exit__(None, None, None)
-    #     prof.export_chrome_trace("trace_mapt.json")
 
 
 if __name__ == "__main__":

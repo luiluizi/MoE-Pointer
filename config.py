@@ -81,7 +81,6 @@ def get_config():
     parser.add_argument("--not_use_heur_veh", action="store_true", default=False, help="don't use vehicle heuristic prob.")
     parser.add_argument("--not_use_ar", action="store_true", default=False, help="don't use auto regressive.")
     parser.add_argument("--not_use_relation", action="store_true", default=False, help="don't use relation-aware attention.")
-    parser.add_argument("--not_use_tsp", action="store_true", default=False, help="don't use tsp contraint heuristic.")
     parser.add_argument("--not_use_node_emb", action="store_true", default=False, help="don't use node embedding for real dataset")
     parser.add_argument("--use_unbind_decode", action="store_true", default=False, help="don't bind emb and action as decoder input.")
     parser.add_argument("--use_moe", action="store_true", default=False, help="use MoE structure.")
