@@ -228,7 +228,7 @@ class DroneTransferEnv(MultiAgentEnv):
         n_exist_requests = visible.sum(-1)
         n_consider_requests = n_exist_requests.clamp_max(cur_max_consider_requests)
 
-        if self.algorithm in ["mapt"]:
+        if self.algorithm in ["moe_pointer"]:
             # [batch_size, request_num] bool: At least one vehicle overlaps with the "from" location of request r, the vehicle is in an idle state, and the request is not occupied by other vehicles
             requests_meet_courier_from = ((self.couriers["target"][:, None, :] == self.requests["from"][:, :, None]) & (self.couriers["time_left"] == 0)[:, None, :]).any(-1) & (self._global["courier_request"] == 0).all(-2)
             requests_meet_courier_station2 = ((self.couriers["target"][:, None, :] == self.requests["station2"][:, :, None]) & (self.couriers["time_left"] == 0)[:, None, :]).any(-1) & (self._global["drone_request"] == 4).all(-2)

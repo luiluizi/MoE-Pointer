@@ -21,7 +21,6 @@ def assign_symmetric(matrix, slice_n, slice_m, sub_matrix):
         sub_matrix_T = sub_matrix
     else:
         sub_matrix_T = sub_matrix.transpose(-2, -3)
-        
     matrix[:, slice_n, slice_m] = sub_matrix
     matrix[:, slice_m, slice_n] = sub_matrix_T
 
@@ -86,30 +85,18 @@ class Attention(nn.Module):
                 print("warning, k_cache is not None but use_kvcache=False")
 
         att = (q @ k.transpose(-2, -1)) # (B, nh, L_kv, L_q)
-        # edge feature implementation abolited.
-        # assert qkfeat.shape == torch.Size([B, L, k.shape[-2], q.shape[-1]])
-        # headed_qkfeat = qkfeat.view(B, L, k.shape[-2], self.n_head, D // self.n_head).permute(0, 3, 1, 2, 4) # (B, nh, L_q, L_kv, hs)
-        # att = (q.unsqueeze(-2) * (headed_qkfeat + k.unsqueeze(2))).sum(-1)
         if qkfeat is not None:
-            # TODO: 这里可能导致训练不稳定吗？为什么不加 use_heur_req 效果如此差。
-            # import pdb; pdb.set_trace()
             assert qkfeat.shape == torch.Size((B, L, k.shape[-2], self.qkfeat_dim))
-            # if use_kvcache is False:
-            #     print(att.abs().mean(), qkfeat.abs().mean())
             if self.qkfeat_proj is not None:
                 qkfeat = self.qkfeat_proj(qkfeat)
-            # _norm_debug = att.abs().mean() / qkfeat.abs().mean()
-            # print(_norm_debug)
-            # att = att + qkfeat.permute(0, 3, 1, 2) * 0.1 # this hyper-parameters is set by make both scale similar, which is 10.0
-            att = att + qkfeat.permute(0, 3, 1, 2) * 1. # this hyper-parameters is set by make both scale similar, which is 1
+            att = att + qkfeat.permute(0, 3, 1, 2) * 1.
         
         att = att * (1.0 / math.sqrt(k.size(-1)))
 
         if is_causal and L > 1:
             mask_out = torch.arange(att.shape[-1], device=q.device) > (torch.arange(att.shape[-2], device=q.device) + att.shape[-1] - att.shape[-2])[:, None]
             att[mask_out.expand_as(att)] = float('-inf')
-        
-        # 掩码掉不可见的attention score
+        # Mask out the invisible attention scores
         if kmask is not None:
             att.masked_fill_(~kmask[:, None, None, :], float('-inf'))
         
@@ -164,13 +151,9 @@ class MoEFFN(nn.Module):
         self.req_assign = ExpertFFN(n_embd)
         self.courier_next = ExpertFFN(n_embd)
         self.drone_next = ExpertFFN(n_embd)
-
-        # 简单稳定：标量 gate
         self.gate = nn.Linear(n_embd, 1)
-
-        # 初始化 gate 偏置，使 g 初始时接近 0（即主要使用 shared expert）
-        nn.init.constant_(self.gate.bias, -3.0)  # sigmoid(-3) ≈ 0.047
-        nn.init.normal_(self.gate.weight, std=0.01) # 权重初始化小一点，避免初始波动
+        nn.init.constant_(self.gate.bias, -3.0)
+        nn.init.normal_(self.gate.weight, std=0.01)
 
     def forward(self, x, token_type: int):
         # x: [B, L, D]
@@ -186,10 +169,8 @@ class MoEFFN(nn.Module):
             y_spec = 0.0 * y_shared
 
         g = torch.sigmoid(self.gate(x))   # [B, L, 1]
-        
-        # 混合输出：主要依赖通用专家，专用专家作为补充调整
         y = (1.0 - g) * y_shared + g * y_spec
-        return y, g  # g可用于监控/正则
+        return y, g
 
 class DecodeBlock(nn.Module):
 
@@ -284,16 +265,6 @@ class IterMixin:
     
     def print_iter(self):
         print(self.iter.item())
-
-class MulConstant(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, a, b):
-        return a * b
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        grad_a = grad_output  # 直接传递梯度而不是乘以 b
-        return grad_a, None
 
 class Identity(nn.Module):
     def __init__(self, *args, **kwargs):

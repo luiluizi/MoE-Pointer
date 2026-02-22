@@ -75,7 +75,7 @@ def main(args):
         logger.info(yaml.dump(all_args, indent=4))
         logger.info(yaml.dump(env_args, indent=4))
     all_args.env_args = env_args
-    assert all_args.algorithm in ["mapt", "mapdp"] or all_args.only_eval, "only mapt needs training."
+    assert all_args.algorithm in ["moe_pointer", "mapdp"] or all_args.only_eval, "only moe_pointer needs training."
 
     # cuda
     if all_args.cuda and torch.cuda.is_available():

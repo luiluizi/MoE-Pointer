@@ -1,18 +1,16 @@
-from itertools import product, permutations
-import math
 import torch
+import numpy as np
+from itertools import product
 from torch import nn
 from torch.nn import functional as F
-import numpy as np
 from torch.distributions import Categorical
-
-from .component.models import BatchNorm, Encoder, Decoder, MLP, assign_symmetric, IterMixin, MulConstant, Identity, NoEmbedding, TOKEN_REQ_ASSIGN, TOKEN_COURIER_NEXT, TOKEN_DRONE_NEXT
+from .component.models import BatchNorm, Encoder, Decoder, MLP, assign_symmetric, IterMixin, Identity, NoEmbedding, TOKEN_REQ_ASSIGN, TOKEN_COURIER_NEXT, TOKEN_DRONE_NEXT
 from .myModels import PointerWithPrior
 
 
 class MultiAgentPointerTransformer(nn.Module, IterMixin):
 
-    def __init__(self, n_enc_bloc, n_dec_block, n_embd, n_head, rel_dim, device, max_len=1100, env_args=None, use_ar=True, use_heur_req=True, use_heur_veh=True, use_relation=True, use_node_emb=False, use_unbind_decode=False, use_nearest_station = False, only_heuristic=False, use_moe=False, hypers=None):
+    def __init__(self, n_enc_bloc, n_dec_block, n_embd, n_head, rel_dim, device, max_len=1100, env_args=None, use_ar=True, use_relation=True, use_node_emb=False, use_unbind_decode=False, only_heuristic=False, use_moe=False, hypers=None):
         super().__init__()
         IterMixin.__init__(self)
         self.n_embd = n_embd
@@ -21,17 +19,13 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
         self.env_args = env_args
         self.device = device
 
-        self.use_heur_req = use_heur_req
-        self.use_heur_veh = use_heur_veh
         self.use_ar = use_ar
         self.only_heuristic = only_heuristic
         self.use_relation = use_relation
         self.use_node_emb = use_node_emb
         self.use_unbind_decode = use_unbind_decode
-        self.use_nearest_station = use_nearest_station
         self.use_moe = use_moe
         assert not self.use_unbind_decode or use_ar
-        self.top = 2
 
         # BatchNorm should be turn off when rollout/evaluate
         self.node_bn = BatchNorm(4)
@@ -48,18 +42,16 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
         
         self.node_node_bn = BatchNorm(1)
         self.request_request_dist_bn = BatchNorm(4)
-
         if self.use_ar:
             self.pos_embd = nn.Embedding(max_len, n_embd)
         else:
             self.pos_embd = NoEmbedding(n_embd)
 
         self.node_node_proj_in = MLP(1, n_embd, rel_dim, scale=4., enable_scale=True)
-        # For Courier (Vehicle)
+        # For Courier
         self.vehicle_node_embd = nn.Sequential(nn.Embedding(2, n_embd), MLP(n_embd, rel_dim, pre_act=True, scale=12., enable_scale=True))
         self.vehicle_request_embd = nn.Sequential(nn.Embedding(4, n_embd), MLP(n_embd, rel_dim, pre_act=True, scale=8., enable_scale=True))
-        
-        # For Drone (New)
+        # For Drone
         self.drone_node_embd = nn.Sequential(nn.Embedding(2, n_embd), MLP(n_embd, rel_dim, pre_act=True, scale=12., enable_scale=True))
         self.drone_request_embd = nn.Sequential(nn.Embedding(4, n_embd), MLP(n_embd, rel_dim, pre_act=True, scale=8., enable_scale=True))
 
@@ -72,11 +64,9 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
         self.value_linear = nn.Linear(n_embd, 1)
         self.courier_pointer = PointerWithPrior(n_embd)
         
-        self.SOS = nn.Parameter(torch.randn(n_embd)) # should be init to correct scale?
+        self.SOS = nn.Parameter(torch.randn(n_embd))
         self.NOACTION = nn.Parameter(torch.randn(n_embd))
         
-        # Entity Type Embeddings (可学习的实体类型嵌入)
-        # 使用nn.Embedding来创建可学习的实体类型嵌入
         self.entity_type_emb = nn.Embedding(4, n_embd)  # 0: node, 1: courier, 2: drone, 3: request
 
         self.node_emb = nn.Parameter(torch.randn(500, n_embd))
@@ -84,26 +74,16 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
             self.register_buffer("stored_use_node_emb", torch.tensor(self.use_node_emb))
 
         if not self.only_heuristic:
-            # self.encoder = Identity()
-            # print("use Identity encoder")
             self.encoder = Encoder(n_enc_bloc, n_embd, n_head, rel_dim)
             self.decoder = Decoder(n_dec_block, n_embd, n_head, rel_dim, use_moe=use_moe)
         else:
             self.encoder = Identity()
             self.decoder = Identity()
-
-        # Buffers
-        # only use for eval/inference
-        # self.perm = torch.tensor(list(permutations(list(range(self.env_args["max_capacity"])))), device=self.device)
         
         # Tunable Hyper Parameters
-        # Affact train reward, but has less effect on eval reward.
         self.other_node_prob = hypers.get("other_node_prob", 0.00) # i.g. stay inplace or goto a node where no request. # \beta_2
         self.no_assign_prob = hypers.get("no_assign_prob", 0.00) # \beta_1
         self.load_balance_weight = hypers.get("load_balance_weight", 0.5) # \alpha_1
-        self.concentrat_weight = hypers.get("concentrat_weight", 0.5) # \alpha_2
-        self.temperature = hypers.get("temperature", 2.0) # \alpha_2
-        
         self.dist_norm = 1.0 # Default dist norm
 
     def forward(self, obs, input_actions=None, deterministic=False, only_critic=False):  
@@ -114,16 +94,15 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
         _global = obs["global"]
         batch_size = _global["n_exist_requests"].shape[0]
         device = nodes["n_courier"].device
-
+        
         n_node = nodes["n_courier"].shape[1]
         n_station = _global["station_idx"].shape[1] - 1
         n_courier = couriers["capacity"].shape[1]
         n_drone = drones["target"].shape[1]
         n_request = requests["value"].shape[1] # max_consider_requests
-        node_arange = torch.arange(n_node, device=device)
 
-        # 平均距离
-        dist_label = _global["node_node"].to(torch.float32).sum(-1).sum(-1) / (n_node * n_node)  # heuristic 0.35
+        # average distance
+        dist_label = _global["node_node"].to(torch.float32).sum(-1).sum(-1) / (n_node * n_node) 
         dist_label_drone = _global["station_node_node"].to(torch.float32).sum(-1).sum(-1) / (n_station * n_station) * 0.1
         
         nodes_feature = self.node_proj_in(self.node_bn(torch.stack((
@@ -152,15 +131,8 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
             _global["n_exist_requests"].to(torch.float),
         ), dim=1)))
         
-        # nodes_feature = nodes_feature + self.node_type_emb
-        # couriers_feature = couriers_feature + self.courier_type_emb
-        # drones_feature = drones_feature + self.drone_type_emb
-        # requests_feature = requests_feature + self.request_type_emb
-        
-        # 放在 forward 开头、在计算 lens 之前或之后立刻打印
         batch_size = _global["n_exist_requests"].shape[0]
         device = nodes["n_courier"].device
-
         n_node = nodes["n_courier"].shape[1]
         n_courier = couriers["capacity"].shape[1]
         n_drone = drones["target"].shape[1]
@@ -170,7 +142,7 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
         acc_lens = np.cumsum(lens)
 
         rel_mat = torch.zeros(batch_size, sum(lens), sum(lens), self.rel_dim, device=device)
-        # mask掉未consider的request
+        # Mask out requests that are not considered
         all_mask = torch.ones(batch_size, sum(lens), dtype=torch.bool, device=device)
         all_mask[:, sum(lens[:3]):sum(lens[:4])][torch.arange(lens[3], device=device) >= _global["n_consider_requests"][:, None]] = False
         requests_mask = torch.arange(lens[3], device=device) < _global["n_consider_requests"][:, None]
@@ -202,15 +174,12 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
         request_node_token[batch_arange[:, None].expand(-1, n_request)[requests_mask], request_arange.expand(batch_size, -1)[requests_mask], requests["from"][requests_mask]] = 1
         # to = 2
         request_node_token[batch_arange[:, None].expand(-1, n_request)[requests_mask], request_arange.expand(batch_size, -1)[requests_mask], requests["to"][requests_mask]] = 2
-        
         # station1 = 3 (if assigned)
         station1_mask = requests_mask & (requests["station1"] != n_node)
         request_node_token[batch_arange[:, None].expand(-1, n_request)[station1_mask], request_arange.expand(batch_size, -1)[station1_mask], requests["station1"][station1_mask]] = 3
-        
         # station2 = 4 (if assigned)
         station2_mask = requests_mask & (requests["station2"] != n_node)
         request_node_token[batch_arange[:, None].expand(-1, n_request)[station2_mask], request_arange.expand(batch_size, -1)[station2_mask], requests["station2"][station2_mask]] = 4
-
         request_node_feature = self.request_node_embd(request_node_token)
         assign_symmetric(rel_mat, slice(acc_lens[2], acc_lens[3]), slice(acc_lens[0]), request_node_feature)
 
@@ -248,18 +217,14 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
             global_feature.unsqueeze(-2)
         ), dim=-2) + self.pos_embd(torch.arange(acc_lens[-1], device=device)[None]), all_mask, rel_mat)
         
-        if torch.isnan(all_rep).any():
-            assert(False)
-
         nodes_rep, couriers_rep, drones_rep, requests_rep, global_rep = all_rep.split(lens, dim=1)
         
-        # TODO 起降站是否作为节点呢
-        # 提取起降站特征
+        # Extract station features
         mask_ext = _global["station_mask"].unsqueeze(-1).expand(-1, -1, nodes_rep.size(2))
         flat = nodes_rep.masked_select(mask_ext)
         stations_rep = flat.view(nodes_rep.size(0), -1, nodes_rep.size(2))
 
-        # 得到value
+        # get value
         values = self.value_linear(global_rep.squeeze(-2)).squeeze(-1)
         if only_critic:
             return values
@@ -283,7 +248,7 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
             requests_drones_action = input_actions["request_drone"]
 
         #################### Decoding Request Actions. ####################
-        # 是否要拼接上一步动作的表征
+        # Whether to concatenate the representation of the previous step's action
         if self.use_ar:
             last_action_rep = self.SOS.expand(batch_size, -1)
         else:
@@ -394,7 +359,6 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
                     action_probs[batch_arange[mask3]] = action_probs[batch_arange[mask3]].masked_fill(
                         F.pad(~courier_request_pickup_stage3_mask[batch_arange[mask3], :, requests_decode_idx[mask3]], (0, 1), "constant", False), 0.)
                  
-                # 启发式概率
                 # 负载平衡 courier当前负载越小、运载订单越少，选中的概率越高
                 balance_probs = cur_spaces_courier / couriers["capacity"] * self.load_balance_weight * 0.5
                 additional_probs = F.pad(balance_probs, (0,1), "constant", self.no_assign_prob)
@@ -531,10 +495,6 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
             # action_logits [B, n_node]
             
             action_logits = (pointer_hidden.unsqueeze(-2) @ nodes_rep.transpose(-1, -2)).squeeze(-2)
-
-            # 试一下加temperature = 2 增强探索
-            # self.temperature = 3
-            # action_logits /= self.temperature
             action_probs = F.softmax(action_logits, -1) + 1e-5
             
             if self.only_heuristic:

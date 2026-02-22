@@ -63,12 +63,8 @@ class MVDPDPRunner:
             if not os.path.exists(self.save_dir):
                 os.makedirs(self.save_dir)
 
-
-        # print("obs_space: ", self.envs.observation_space)
-        # print("act_space: ", self.envs.action_space)
-
         # policy network
-        if self.algorithm in ["mapt", "mapdp"]:
+        if self.algorithm in ["moe_pointer", "mapdp"]:
             self.policy = PointerTransformerPolicy(self.all_args, self.env_args, device=self.device)
         elif self.algorithm == "prob_heuristic":
             self.policy = PointerTransformerPolicy(self.all_args, self.env_args, device=self.device, only_heuristic=True)
