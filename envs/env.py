@@ -1,16 +1,12 @@
-from enum import Enum
-import torch
-
-from .multiagentenv import MultiAgentEnv
-from utils.util import get_logger
 import math
+import torch
+from enum import Enum
+from .multiagentenv import MultiAgentEnv
 
 occupancy_logged = False
 
 obs_func_map = {}
 trans_func_map = {}
-
-# 随机数生成器放置在cpu上以保证跨显卡架构结果的一致性
 
 class RELATION(Enum):
     no_relation = 0
@@ -19,8 +15,8 @@ class RELATION(Enum):
     deliveryed_stage1 = 3
     deliveryed_stage2 = 4
     deliveryed_stage3 = 5
-    padded = 6 # 不能被 embedding
-    skipped = 7 # 可以解码但是由于策略设置被跳过
+    padded = 6 # Cannot be embedded
+    skipped = 7 # Can be decoded but is skipped due to policy settings
 
 @torch.no_grad()
 def floyd(g: torch.Tensor):
