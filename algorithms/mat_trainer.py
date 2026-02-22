@@ -6,12 +6,6 @@ from algorithms.pointer_transformer_policy import PointerTransformerPolicy
 
 
 class MATTrainer:
-    """
-    Trainer class for MAT to update policies.
-    :param args: (argparse.Namespace) arguments containing relevant model, policy, and env information.
-    :param policy: (R_MAPPO_Policy) policy to update.
-    :param device: (torch.device) specifies the device to run on (cpu/gpu).
-    """
     def __init__(self,
                  args,
                  policy,
@@ -42,18 +36,8 @@ class MATTrainer:
             self.value_normalizer = None
 
     def cal_value_loss(self, values, value_preds_batch, return_batch):
-        """
-        Calculate value function loss.
-        :param values: (torch.Tensor) value function predictions.
-        :param value_preds_batch: (torch.Tensor) "old" value  predictions from data batch (used for value clip loss)
-        :param return_batch: (torch.Tensor) reward to go returns.
-
-        :return value_loss: (torch.Tensor) value function loss.
-        """
-
         value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-self.clip_param,
                                                                                     self.clip_param)
-
         if self._use_valuenorm:
             self.value_normalizer.update(return_batch)
             error_clipped = self.value_normalizer.normalize(return_batch) - value_pred_clipped
@@ -74,7 +58,6 @@ class MATTrainer:
         else:
             value_loss = value_loss_original
 
-        # if self._use_value_active_masks and not self.dec_actor:
         value_loss = value_loss.mean()
 
         return value_loss
@@ -104,8 +87,6 @@ class MATTrainer:
             actions_batch
         )
         # actor update
-        # TODO: 验证 surrogate loss 稳定性, 在 not_use_heur_req 时, imp_weights 非常非常小。
-        # TODO: 验证有多少有效的项没被 clip 掉。
         imp_weights = torch.exp(action_log_probs - old_action_log_probs_batch)
         if self.all_args.not_use_ar: # which causes training process much unstable.
             imp_weights = imp_weights.clamp_max(1e5)
@@ -122,15 +103,8 @@ class MATTrainer:
         # entropy loss
         dist_entropy = dist_entropy.mean()
         # aux_losses
-        # aux_losses = aux_losses.mean()
-        # loss = - dist_entropy * self.entropy_coef + value_loss * self.value_loss_coef
-        # loss = policy_loss - dist_entropy * self.entropy_coef + value_loss * self.value_loss_coef + aux_losses * self.aux_loss_coef 
         loss = policy_loss - dist_entropy * self.entropy_coef + value_loss * self.value_loss_coef
         
-        # print("value_loss", value_loss)
-        # print("dist_entropy", dist_entropy)
-        # print("policy_loss", policy_loss)
-
         self.policy.optimizer.zero_grad()
         loss.backward()
 
@@ -138,12 +112,7 @@ class MATTrainer:
             grad_norm = nn.utils.clip_grad_norm_(self.policy.transformer.parameters(), self.max_grad_norm)
         else:
             grad_norm = get_gard_norm(self.policy.transformer.parameters())
-        
-        
-        # for p in self.policy.transformer.parameters():
-        #     if p.grad is not None and p.grad.isnan().any():
-        #         import ipdb
-        #         ipdb.set_trace()
+
         any_nan = False
         for name, p in self.policy.transformer.named_parameters():
             if p.grad is not None and torch.isnan(p.grad).any():
@@ -162,7 +131,6 @@ class MATTrainer:
 
         :return train_info: (dict) contains information regarding training update (e.g. loss, grad norms, etc).
         """
-
         train_info = {}
 
         train_info['value_loss'] = 0
@@ -175,22 +143,16 @@ class MATTrainer:
         num_updates = 0
         for _ in range(self.ppo_epoch):
             data_generator = buffer.feed_forward_generator_transformer(self.mini_batch_size)
-            id = 1
             for sample in data_generator:
-                # print(id)
-                id += 1
-                # import pdb
-                # pdb.set_trace()
                 value_loss, critic_grad_norm, policy_loss, dist_entropy, actor_grad_norm, imp_weights \
                     = self.ppo_update(sample)
-
                 train_info['value_loss'] += value_loss.item()
                 train_info['policy_loss'] += policy_loss.item()
                 train_info['dist_entropy'] += dist_entropy.item()
                 train_info['actor_grad_norm'] += actor_grad_norm
                 train_info['critic_grad_norm'] += critic_grad_norm
                 train_info['ratio'] += imp_weights.mean()
-                
+
                 num_updates += 1
 
         for k in train_info.keys():

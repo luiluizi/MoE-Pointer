@@ -37,7 +37,7 @@ class ReplayBuffer(object):
         self.advantages = torch.zeros(self.episode_length, self.n_rollout_threads, device=self.device)
 
         self.actions = [None] * self.episode_length
-        # 存储每个时间步采取某动作时的log概率
+        # Store the log probability of taking a certain action at each time step
         self.action_log_probs = torch.zeros(self.episode_length, self.n_rollout_threads, device=self.device)
         self.rewards = torch.zeros(self.episode_length, self.n_rollout_threads, device=self.device)
         self.step = 0
@@ -67,11 +67,9 @@ class ReplayBuffer(object):
         self.value_preds[self.step] = value_preds
         self.rewards[self.step] = rewards
         self.masks[self.step + 1] = masks
-        # 达到episode_length后重置
         self.step = (self.step + 1) % self.episode_length
 
     def after_update(self):
-        #在策略/价值网络更新结束后，需要让 buffer 保留最后一个 time step 的状态，作为下一轮数据收集的初始状态。
         """Copy last timestep data to first index. Called after update to model."""
         self.obs[0] = self.obs[-1]
         self.rnn_states[0] = self.rnn_states[-1]
@@ -84,7 +82,6 @@ class ReplayBuffer(object):
         :param next_value: (np.ndarray) value predictions for the step after the last episode step.
         :param value_normalizer: (PopArt) If not None, PopArt value normalizer instance.
         """
-        # next_value从哪来
         self.value_preds[-1] = next_value
         gae = 0
         for step in reversed(range(self.rewards.shape[0])):

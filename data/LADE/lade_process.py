@@ -20,7 +20,7 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 # 导入辅助函数
-from envs.mvdpdp.env_lade import (
+from envs.env_lade import (
     CITY_CONFIGS, meters_to_degrees, build_grid, assign_points_to_grid
 )
 
