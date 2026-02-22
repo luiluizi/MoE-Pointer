@@ -1,6 +1,5 @@
 import time
 import os
-import sys
 
 import wandb
 import torch
@@ -9,11 +8,9 @@ from tensorboardX import SummaryWriter
 from utils.replay_buffer import ReplayBuffer
 from algorithms.mat_trainer import MATTrainer as TrainAlgo
 from algorithms.pointer_transformer_policy import PointerTransformerPolicy
-from algorithms.my_rolling_policy import RollingHorizonPolicy
+from algorithms.rolling_horizon_policy import RollingHorizonPolicy
 from envs.env import DroneTransferEnv
 from utils.util import get_logger
-
-
 
 class MVDPDPRunner:
     """Runner class to perform training, evaluation. and data collection for SMAC. See parent class for details."""

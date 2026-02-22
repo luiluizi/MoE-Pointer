@@ -2,10 +2,10 @@ import multiprocessing as mp
 import itertools
 
 import torch
-from .my_cpsat import CPSAT
-from .my_nearest import NearestHeuristic
-from .my_genetic import GeneticAlgorithm
-from .my_annealing import SimulatedAnnealing
+from .cpsat import CPSAT
+from .nearest import NearestHeuristic
+from .genetic import GeneticAlgorithm
+from .simulated_annealing import SimulatedAnnealing
 
 def call_solve(solver):
     return solver.solve(show=False)

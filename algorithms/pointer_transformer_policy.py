@@ -30,7 +30,7 @@ class PointerTransformerPolicy:
                 hypers={"other_node_prob": args.other_node_prob, "no_assign_prob": args.no_assign_prob, "load_balance_weight": args.load_balance_weight, "concentrat_weight": args.concentrat_weight, "temperature": args.temperature}
             )
         elif self.algorithm == "mapdp":
-            from algorithms.my_mapdp import MAPDP
+            from algorithms.MAPDP import MAPDP
             self.transformer = MAPDP(
                 n_enc_bloc=args.n_enc_block, n_embd=args.n_embd, n_head=args.n_head, rel_dim=2*args.n_head, env_args=env_args
             )

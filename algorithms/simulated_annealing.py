@@ -1,6 +1,5 @@
 import math
 import copy
-import numpy as np
 from .component.metaheuristic import MetaheuristicBase
 
 class SimulatedAnnealing(MetaheuristicBase):
