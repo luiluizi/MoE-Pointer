@@ -16,7 +16,7 @@ class MVDPDPRunner:
     """Runner class to perform training, evaluation. and data collection for SMAC. See parent class for details."""
     def __init__(self, config):
         self.all_args = config['all_args']
-        self.logger = get_logger(not self.all_args.only_eval)
+        self.logger = get_logger()
         self.env_args = config['env_args']
         self.envs: DroneTransferEnv = config['envs']
         self.eval_envs: DroneTransferEnv = config['eval_envs']

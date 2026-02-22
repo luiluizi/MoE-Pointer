@@ -1,12 +1,9 @@
 
 import numpy as np
-
 import torch
 import torch.nn as nn
 
-
 class ValueNorm(nn.Module):
-    """ Normalize a vector of observations - across the first norm_axes dimensions"""
 
     def __init__(self, input_shape, norm_axes=1, beta=0.99999, per_element_update=False, epsilon=1e-5, device=torch.device("cpu")):
         super(ValueNorm, self).__init__()
@@ -55,14 +52,12 @@ class ValueNorm(nn.Module):
         self.debiasing_term.mul_(weight).add_(1.0 * (1.0 - weight))
 
     def normalize(self, input_vector):
-        # Make sure input is float32
         if type(input_vector) == np.ndarray:
             input_vector = torch.from_numpy(input_vector)
         input_vector = input_vector.to(**self.tpdv)
 
         mean, var = self.running_mean_var()
         out = (input_vector - mean[(None,) * self.norm_axes]) / torch.sqrt(var)[(None,) * self.norm_axes]
-        
         return out
 
     def denormalize(self, input_vector):
@@ -73,7 +68,4 @@ class ValueNorm(nn.Module):
 
         mean, var = self.running_mean_var()
         out = input_vector * torch.sqrt(var)[(None,) * self.norm_axes] + mean[(None,) * self.norm_axes]
-        
-        # out = out.cpu().numpy()
-        
         return out

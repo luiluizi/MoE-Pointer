@@ -15,7 +15,7 @@ def update_linear_schedule(optimizer, epoch, total_num_epochs, initial_lr):
         param_group['lr'] = lr
 
 def update_cosine_schedule(optimizer, epoch, total_epochs, initial_lr, min_lr=0):
-    """余弦衰减"""
+    """Cosine learning rate decay"""
     progress = epoch / total_epochs
     lr = min_lr + (initial_lr - min_lr) * 0.5 * (1 + np.cos(np.pi * progress))
     for param_group in optimizer.param_groups:
@@ -31,8 +31,7 @@ def mse_loss(e):
 
 logger_instance = None
 
-def get_logger(is_form=True):
-    is_form = False
+def get_logger():
     global logger_instance
     if logger_instance is not None:
         return logger_instance
@@ -40,27 +39,16 @@ def get_logger(is_form=True):
     cur = datetime.datetime.now()
     cur = cur.strftime('%b-%d-%Y_%H-%M-%S')
     
-    # log_dir = './baseline/log'
-    # log_dir = './no/log'
-    if is_form:
-        log_dir = '/mnt/jfs6/g-bairui/log'
-    else:
-        log_dir = '/mnt/jfs6/g-bairui/log'
-    # if is_form:
-    #     log_dir = './train_log/log'
-    # else:
-    #     log_dir = './test_log/log'
+    log_dir = './train_log/log'
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     log_filename = '{}.log'.format(cur)
     logfilepath = os.path.join(log_dir, log_filename)
     
     logger = logging.getLogger("drone")
-
     level = logging.INFO
-
     logger.setLevel(level)
-    
+
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     file_handler = logging.FileHandler(logfilepath)
     file_handler.setFormatter(formatter)

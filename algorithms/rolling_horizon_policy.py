@@ -1,6 +1,5 @@
 import multiprocessing as mp
 import itertools
-
 import torch
 from .cpsat import CPSAT
 from .nearest import NearestHeuristic
@@ -14,7 +13,7 @@ def assign_stations(_global, requests, batch_size, n_request, n_node, device):
     station1_action = torch.full([batch_size, n_request], n_node, dtype=torch.int64, device=device)
     station2_action = torch.full([batch_size, n_request], n_node, dtype=torch.int64, device=device)
     
-    # 取最近的station作为station1和station2
+    # Take the nearest station as station1 and station2
     dist_matrix = _global["node_node"].to(torch.float32)
     for b in range(batch_size):
         stations = _global["station_idx"][b,:-1]
@@ -26,7 +25,6 @@ def assign_stations(_global, requests, batch_size, n_request, n_node, device):
         station1_action[b] = stations[min_station1_idx]
         
         to_dists = dist_matrix[b, request_to[:, None], stations[None, :]]
-
         to_dists_excluded = to_dists.clone()
         exclude_mask = torch.zeros_like(to_dists_excluded, dtype=torch.bool)
         exclude_mask[torch.arange(len(min_station1_idx)), min_station1_idx] = True
@@ -35,7 +33,6 @@ def assign_stations(_global, requests, batch_size, n_request, n_node, device):
 
         min_station2_idx = to_dists_excluded.argmin(dim=1)
         station2_action[b] = stations[min_station2_idx]
-
         assert (station1_action[b] != station2_action[b]).all(), "Station assignment conflict not resolved"
     
     return station1_action, station2_action
@@ -56,11 +53,9 @@ class RollingHorizonPolicy:
         # Tunable Hyper Parameter
         self.use_hindsight = use_hindsight
         if not use_hindsight:
-            self.max_consider_frame = self.env_args["max_dist"] # changed from 3 to 2 # TODO
-            self.reschedule_T = self.env_args["max_dist"]  # 每隔 reschedule_T 帧重新规划一次
+            self.max_consider_frame = self.env_args["max_dist"]
+            self.reschedule_T = self.env_args["max_dist"]  # Replan once every reschedule_T frames
             assert self.reschedule_T <= self.max_consider_frame
-            # self.max_consider_frame = self.env_args["n_frame"]
-            # self.reschedule_T = self.env_args["n_frame"]
         else:
             self.max_consider_frame = 114514
             self.reschedule_T = 114514
@@ -90,29 +85,19 @@ class RollingHorizonPolicy:
         requests_mask = torch.arange(n_request, device=device) < _global["n_consider_requests"][:, None]
         solvers = []
         for i in range(batch_size):
-            frame_left = min(self.env_args["n_frame"] - frame, self.max_consider_frame) # large frame_left 搜索不动
+            frame_left = min(self.env_args["n_frame"] - frame, self.max_consider_frame)
             is_courier_delivering = (_global["courier_request"][i, :, requests_mask[i]] == 2)
             pre_load_courier_stage1 = is_courier_delivering & ((_global["courier_request"][i, :, requests_mask[i]] != 3).all(0, keepdim=True)) 
             pre_load_courier_stage3 = is_courier_delivering & ((_global["drone_request"][i, :, requests_mask[i]] == 4).any(0, keepdim=True))
             pre_load_drone = _global["drone_request"][i, :, requests_mask[i]] == 2
-            # 到达阶段2 或 阶段3 但是还没有载具来运输
+            # Reached stage 2 or stage 3 but no vehicle has arrived for transportation
             wait_stage2 = (_global["courier_request"][i, :, requests_mask[i]] == 3).any(0) & (_global["drone_request"][i, :, requests_mask[i]] < 2).all(0) 
             wait_stage3 = (_global["drone_request"][i, :, requests_mask[i]] == 4).any(0) & (_global["courier_request"][i, :, requests_mask[i]] != 2).all(0) 
-            # # 使用 drone 的状态来区分 courier 的 stage1 和 stage3
-            # # 如果 drone 已经完成配送 (状态 4)，那么 courier 的配送 (状态 2) 一定是 stage3
-            # is_drone_done = (_global["drone_request"][i, :, requests_mask[i]] == 4).any(0, keepdim=True)
-            # is_courier_delivering = (_global["courier_request"][i, :, requests_mask[i]] == 2)
-            
-            # pre_load_courier_stage3 = is_courier_delivering & is_drone_done
-            # pre_load_courier_stage1 = is_courier_delivering & (~is_drone_done)
-            
-            # pre_load_drone = _global["drone_request"][i, :, requests_mask[i]] == 2
-
             
             appear = (requests["appear"][i, requests_mask[i]] - frame).clamp_min(0).masked_fill(pre_load_courier_stage1.any(dim=0) | pre_load_courier_stage3.any(dim=0) | pre_load_drone.any(dim=0), -1)
             objective_scale = 1. if self.env_args["dist_cost_courier"] == 0. else self.env_args["dist_cost_courier"]
             
-            # 防止stage1和3使用同一个courier
+            # Prevent stage1 and stage3 from using the same courier
             mask = (_global["courier_request"][i, :, requests_mask[i]] == 3)
             
             has_any = mask.any(dim=0)
@@ -131,7 +116,6 @@ class RollingHorizonPolicy:
                 couriers["time_left"][i].clamp_max(frame_left).tolist(),
                 drones["time_left"][i].clamp_max(frame_left).tolist(),
                 _global["node_node"][i].round().to(torch.int64).tolist(),
-                # TODO 如果courier和drone的cost不同需要修改 
                 (_global["node_node"][i] * self.env_args["dist_cost_courier"] / objective_scale).round().to(torch.int64).tolist(),
                 (_global["node_node"][i] * self.env_args["dist_cost_drone"] / objective_scale).round().to(torch.int64).tolist(),
                 requests["from"][i][requests_mask[i]].tolist(), 
@@ -154,7 +138,6 @@ class RollingHorizonPolicy:
             solvers.append(solver)
 
         num_cores = mp.cpu_count()
-        # num_cores = 4
         if num_cores < self.eval_episodes:
             batch_size = num_cores
             num_batches = (self.eval_episodes + batch_size - 1) // batch_size

@@ -71,7 +71,7 @@ def main(args):
     if not all_args.only_eval:
         print(yaml.dump(all_args, indent=4))
         print(yaml.dump(env_args, indent=4))
-        logger = get_logger(not all_args.only_eval)
+        logger = get_logger()
         logger.info(yaml.dump(all_args, indent=4))
         logger.info(yaml.dump(env_args, indent=4))
     all_args.env_args = env_args
