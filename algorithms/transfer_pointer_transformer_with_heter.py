@@ -32,10 +32,7 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
         self.use_unbind_decode = use_unbind_decode
         self.use_nearest_station = use_nearest_station
         self.use_moe = use_moe
-        # use_moe = True
-        # self.use_moe = True
         assert not self.use_unbind_decode or use_ar
-        
         self.top = 2
 
         # BatchNorm should be turn off when rollout/evaluate

@@ -3,8 +3,8 @@ from torch import nn
 from torch.nn import functional as F
 from torch.distributions import Categorical
 
-from .models import BatchNorm, Encoder, MLP, Attention, IterMixin
-from envs.mvdpdp.env import obs_func_map, trans_func_map, DroneTransferEnv
+from .component.models import BatchNorm, Encoder, MLP, Attention, IterMixin
+from envs.env import obs_func_map, trans_func_map, DroneTransferEnv
 
 
 class MAPDP(nn.Module, IterMixin):

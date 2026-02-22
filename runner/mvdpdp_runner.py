@@ -10,8 +10,7 @@ from utils.replay_buffer import ReplayBuffer
 from algorithms.mat_trainer import MATTrainer as TrainAlgo
 from algorithms.pointer_transformer_policy import PointerTransformerPolicy
 from algorithms.my_rolling_policy import RollingHorizonPolicy
-# from envs.mvdpdp.mvdpdp import DiscreteMVDPDP, DiscreteMVDPDPDHRD
-from envs.mvdpdp.env import DroneTransferEnv
+from envs.env import DroneTransferEnv
 from utils.util import get_logger
 
 
@@ -24,9 +23,7 @@ class MVDPDPRunner:
         self.env_args = config['env_args']
         self.envs: DroneTransferEnv = config['envs']
         self.eval_envs: DroneTransferEnv = config['eval_envs']
-        self.device = config['device']
-        if config.__contains__("render_envs"):
-            self.render_envs = config['render_envs']       
+        self.device = config['device']     
 
         # parameters
         self.env_name = self.all_args.env_name
@@ -43,8 +40,6 @@ class MVDPDPRunner:
         self.warmup_epoch = self.all_args.warmup_ratio * self.num_episodes // self.n_rollout_threads
         self.logger.info(f"warmup_epoch {self.warmup_epoch}")
         self.use_wandb = self.all_args.use_wandb
-
-        # 这是什么？
         self.recurrent_N = self.all_args.recurrent_N
 
         # interval

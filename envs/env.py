@@ -10,6 +10,8 @@ occupancy_logged = False
 obs_func_map = {}
 trans_func_map = {}
 
+# 随机数生成器放置在cpu上以保证跨显卡架构结果的一致性
+
 class RELATION(Enum):
     no_relation = 0
     to_pickup = 1
@@ -56,6 +58,7 @@ class DroneTransferEnv(MultiAgentEnv):
         self.courier_cost_ratio = self.env_args['dist_cost_courier']
         self.request_profit_ratio = self.env_args['dist_req_profit']
         
+        # self.algorithm = "BR"
         self.n_tot_requests = self.env_args["n_init_requests"] + self.env_args["n_norm_requests"]
         self.max_consider_requests = self.n_tot_requests if self.env_args["max_consider_requests"] == -1 else self.env_args["max_consider_requests"]
         self.device = kwargs["device"]
@@ -65,6 +68,7 @@ class DroneTransferEnv(MultiAgentEnv):
         self.batch_arange = torch.arange(self.batch_size, device=self.device)
         self.node_arange = torch.arange(self.n_node, device=self.device)
         self.requests_arange = torch.arange(self.n_tot_requests, device=self.device)
+        # self.logger = get_logger()
 
     def generate_non_overlapping(self, num_samples, node_node, min_direct_dist=0):
         non_station_idx = torch.nonzero(~self.station_mask[0], as_tuple=False).reshape(-1)
@@ -125,6 +129,58 @@ class DroneTransferEnv(MultiAgentEnv):
             # 计算中转站之间的距离
             submat = node_node[0, station_indices][:, station_indices]
             station_node_node = submat.unsqueeze(0).repeat(self.batch_size, 1, 1)
+            
+            import pandas as pd
+            import matplotlib.pyplot as plt
+            def save_nodes_and_stations(node_coord, station_idx, filepath="nodes_stations.csv"):
+                batch_size, n_node, _ = node_coord.shape
+                records = []
+                for b in range(batch_size):
+                    for i in range(n_node):
+                        x, y = node_coord[b, i].tolist()
+                        is_station = int(i in station_idx[b].tolist())  # 判断是否是站点
+                        records.append({
+                            "batch": b,
+                            "node_id": i,
+                            "x": x,
+                            "y": y,
+                            "is_station": is_station
+                        })
+                df = pd.DataFrame(records)
+                df.to_csv(filepath, index=False)
+                print(f"Saved nodes & stations info to {filepath}")
+            
+            def plot_nodes_and_stations(filepath="nodes_stations.csv", out_file="nodes_plot.png", batch_id=0):
+                df = pd.read_csv(filepath)
+
+                # 选取某一个 batch
+                batch_df = df[df["batch"] == batch_id]
+
+                # 普通节点
+                nodes = batch_df[batch_df["is_station"] == 0]
+                # 中转站
+                stations = batch_df[batch_df["is_station"] == 1]
+
+                plt.figure(figsize=(6, 6))
+                plt.scatter(nodes["x"], nodes["y"], c="blue", label="Node", alpha=0.7)
+                plt.scatter(stations["x"], stations["y"], c="red", label="Station", s=80, marker="s")
+
+                for _, row in batch_df.iterrows():
+                    plt.text(row["x"]+0.1, row["y"]+0.1, str(row["node_id"]), fontsize=8)
+
+                plt.xlabel("X")
+                plt.ylabel("Y")
+                plt.title(f"Batch {batch_id}: Nodes and Stations")
+                plt.legend()
+                plt.grid(True)
+                plt.axis("equal")
+                plt.show()
+                plt.savefig(out_file, dpi=300, bbox_inches="tight")
+                plt.close()
+            
+            # save_nodes_and_stations(node_coord, station_idx)
+            # plot_nodes_and_stations()
+            # assert(False)
 
         self.nodes = { "coord": node_coord }
         self.node_node = node_node
@@ -144,13 +200,17 @@ class DroneTransferEnv(MultiAgentEnv):
         visible = torch.full([self.batch_size, self.env_args["n_init_requests"] + self.env_args["n_norm_requests"]], False, device=self.device)
         visible[:, :self.env_args["n_init_requests"]] = True
 
+        # TODO courier初始分布
+        
         # drone初始分布生成，尽量不集中在同一点
         if not self.debug:
             cycle_indices = torch.arange(self.n_drone, device=self.device) % self.n_station
             batch_offsets = torch.randint(0, self.n_station, (self.batch_size,), generator=self.rng, device='cpu').to(self.device)
+
             rand_idx = (cycle_indices.unsqueeze(0) + batch_offsets.unsqueeze(1)) % self.n_station
             drones_target = torch.gather(self.station_idx[:,:-1].unsqueeze(1).expand(-1, self.n_drone, -1), 2, rand_idx.unsqueeze(2)).squeeze(2)
         else:
+            # debug 模式下，先生成 [1, n_drone] 的 rand_idx，再 repeat 到整个 batch
             rand_idx = torch.randint(0, self.n_station, (1, self.n_drone), generator=self.rng, device='cpu' ).to(self.device)
             drones_target = torch.gather(self.station_idx[:1].unsqueeze(1).expand(-1, self.n_drone, -1), 2, rand_idx.unsqueeze(2)).squeeze(2).repeat(self.batch_size, 1)
 
@@ -196,6 +256,14 @@ class DroneTransferEnv(MultiAgentEnv):
             "drone_request": torch.full([self.batch_size, self.n_drone, self.n_tot_requests], RELATION.no_relation.value, device=self.device),
             "request_done": torch.full([self.batch_size, self.n_tot_requests], False, device=self.device),
         }
+        
+        # theoretical server rate 后面要去掉
+        global occupancy_logged
+        if not occupancy_logged:
+            _all_workload = self.requests["value"].float().mean() * (self.env_args["n_init_requests"] + self.env_args["n_norm_requests"])
+            _max_capacity = self.n_courier * self.env_args["n_frame"] # * self.env_args["max_capacity"]
+            # self.logger.info(f"theoretical server rate: {(_max_capacity / _all_workload).item()}")
+            occupancy_logged = True
 
         # 确定每一帧新出现的请求个数 确定每个请求出现的时间步
         assert self.env_args["n_requested_frame"] <= self.env_args["n_frame"]
@@ -611,7 +679,10 @@ class DroneTransferEnv(MultiAgentEnv):
         obs, unobs = self.get_obs()
 
         # 得到reward
+        # rewards = current_value_stage3 - current_cost_courier * self.courier_cost_ratio - current_cost_drone * self.drone_cost_ratio
         rewards = current_value_stage1 + 5 * current_value_stage2 +  10 * current_value_stage3 - current_cost_courier * self.courier_cost_ratio - current_cost_drone * self.drone_cost_ratio
+        # rewards =  - current_cost_courier * self.courier_cost_ratio - current_cost_drone * self.drone_cost_ratio
+        # rewards = 0.1 * current_value_stage1 + 0.4 * current_value_stage2 +  current_value_stage3 - current_cost_courier * self.courier_cost_ratio - current_cost_drone * self.drone_cost_ratio
         # 检查batch中是否某个环境已经结束
         dones = torch.full([self.batch_size], self._global["frame"], device=self.device) == self.env_args["n_frame"]
 

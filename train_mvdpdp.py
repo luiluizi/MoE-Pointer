@@ -9,8 +9,8 @@ import numpy as np
 
 from pathlib import Path
 from config import get_config
-from envs.mvdpdp.env import DroneTransferEnv
-from envs.mvdpdp.env_lade import DroneTransferEnvLADE
+from envs.env import DroneTransferEnv
+from envs.env_lade import DroneTransferEnvLADE
 from runner.mvdpdp_runner import MVDPDPRunner as Runner
 from utils.util import get_logger
 
