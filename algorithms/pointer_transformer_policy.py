@@ -15,10 +15,20 @@ class PointerTransformerPolicy:
             from algorithms.transfer_pointer_transformer_with_heter import MultiAgentPointerTransformer
             print("use transfer_pointer_transformer_with_heter")
             self.transformer = MultiAgentPointerTransformer(
-                n_enc_bloc=args.n_enc_block, n_dec_block=args.n_dec_block, n_embd=args.n_embd, n_head=args.n_head, rel_dim=2*args.n_head, env_args=env_args, device=self.device,
-                use_ar=not args.not_use_ar, use_relation=not args.not_use_relation,
-                use_node_emb=not args.not_use_node_emb, only_heuristic=self.only_heuristic, use_unbind_decode=args.use_unbind_decode, use_moe=args.use_moe,
-                hypers={"other_node_prob": args.other_node_prob, "no_assign_prob": args.no_assign_prob, "load_balance_weight": args.load_balance_weight, "temperature": args.temperature}
+                n_enc_bloc=args.n_enc_block, 
+                n_dec_block=args.n_dec_block, 
+                n_embd=args.n_embd, 
+                n_head=args.n_head, 
+                rel_dim=2*args.n_head, 
+                env_args=env_args, 
+                device=self.device,
+                use_ar=not args.not_use_ar, 
+                use_relation=not args.not_use_relation,
+                use_node_emb=not args.not_use_node_emb, 
+                only_heuristic=self.only_heuristic, 
+                use_unbind_decode=args.use_unbind_decode, 
+                use_moe=args.use_moe,
+                hypers={"other_node_prob": args.other_node_prob, "no_assign_prob": args.no_assign_prob, "load_balance_weight": args.load_balance_weight}
             )
         elif self.algorithm in ["prob_heuristic"]:
             from algorithms.transfer_pointer_transformer2 import MultiAgentPointerTransformer
@@ -27,12 +37,16 @@ class PointerTransformerPolicy:
                 n_enc_bloc=args.n_enc_block, n_dec_block=args.n_dec_block, n_embd=args.n_embd, n_head=args.n_head, rel_dim=2*args.n_head, env_args=env_args, device=self.device,
                 use_ar=not args.not_use_ar, use_heur_req=not args.not_use_heur_req, use_heur_veh=not args.not_use_heur_veh, use_relation=not args.not_use_relation, use_nearest_station = args.use_nearest_station,
                 use_node_emb=not args.not_use_node_emb, only_heuristic=self.only_heuristic, use_unbind_decode=args.use_unbind_decode, use_moe=args.use_moe,
-                hypers={"other_node_prob": args.other_node_prob, "no_assign_prob": args.no_assign_prob, "load_balance_weight": args.load_balance_weight, "temperature": args.temperature}
+                hypers={"other_node_prob": args.other_node_prob, "no_assign_prob": args.no_assign_prob, "load_balance_weight": args.load_balance_weight}
             )
         elif self.algorithm == "mapdp":
             from algorithms.MAPDP import MAPDP
             self.transformer = MAPDP(
-                n_enc_bloc=args.n_enc_block, n_embd=args.n_embd, n_head=args.n_head, rel_dim=2*args.n_head, env_args=env_args
+                n_enc_bloc=args.n_enc_block, 
+                n_embd=args.n_embd, 
+                n_head=args.n_head, 
+                rel_dim=2*args.n_head, 
+                env_args=env_args
             )
 
         # count the volume of parameters of model
@@ -55,7 +69,6 @@ class PointerTransformerPolicy:
                                           eps=self.opti_eps,
                                           weight_decay=self.weight_decay)
         self.transformer.to(self.device)
-
         if self.check_grad:
             torch.autograd.set_detect_anomaly(True)
 
@@ -70,11 +83,6 @@ class PointerTransformerPolicy:
             param_group['lr'] = self.lr
         
     def lr_decay(self, episode, episodes, option):
-        """
-        Decay the actor and critic learning rates.
-        :param episode: (int) current training episode.
-        :param episodes: (int) total number of training episodes.
-        """
         if option == 'linear':
             update_linear_schedule(self.optimizer, episode, episodes, self.lr)
         elif option == 'cosine':

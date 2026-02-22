@@ -25,11 +25,11 @@ class MVDPDPRunner:
         # parameters
         self.env_name = self.all_args.env_name
         self.algorithm = self.all_args.algorithm
-        # 训练总回合数
+        # Total number of training episodes
         self.num_episodes = self.all_args.num_episodes
-        # 每回合最大步数
+        # Maximum number of steps per episode
         self.episode_length = self.all_args.episode_length
-        # 并行环境数量
+        # Number of parallel environments
         self.n_rollout_threads = self.all_args.n_rollout_threads
         self.use_linear_lr_decay = not self.all_args.not_use_linear_lr_decay and not self.all_args.use_cosine_lr_decay    
         self.use_cosine_lr_decay = self.all_args.use_cosine_lr_decay and self.all_args.not_use_linear_lr_decay
@@ -90,7 +90,6 @@ class MVDPDPRunner:
         train_episode_rewards = torch.zeros(self.n_rollout_threads, device=self.device)
         done_episodes_rewards = [] # heterogeneous
 
-        # 日志记录训练过程参数
         one_episode_stage1_rewards = torch.zeros(self.n_rollout_threads, device=self.device)
         done_episode_stage1_rewards = []
         one_episode_stage2_rewards = torch.zeros(self.n_rollout_threads, device=self.device)
@@ -112,7 +111,6 @@ class MVDPDPRunner:
             elif self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, n_episode_batch, 'linear')
             elif self.use_cosine_lr_decay:
-                assert(False)
                 self.trainer.policy.lr_decay(episode, n_episode_batch, 'cosine')
             for step in range(self.episode_length): 
                 values, actions, action_log_probs, rnn_states, rnn_states_critic = self.collect(step)

@@ -190,7 +190,6 @@ class DecodeBlock(nn.Module):
             print("Use MoE structure")
         else:
             print("Use original MLP structure")
-            # Use original MLP structure
             self.mlp = nn.Sequential(
                 init_(nn.Linear(n_embd, 4 * n_embd), activate=True),
                 nn.GELU(),
@@ -285,3 +284,16 @@ class NoEmbedding(nn.Module):
     def forward(self, x):
         shape = [*x.shape[:-1], self.embedding_dim]
         return torch.zeros(shape, device=x.device)
+    
+def get_topk_mask(full_mask, costs, k=3):
+    """
+    保留 full_mask 中 costs 最小的 k 个节点。
+    返回: Top-K Mask (只包含最近的k个), Invalid Mask (包含剩余被剔除的请求节点)
+    """
+    valid_costs = torch.where(full_mask, costs, torch.tensor(float('inf'), device=costs.device))
+    curr_k = min(k, full_mask.size(-1))
+    _, topk_inds = torch.topk(valid_costs, k=curr_k, dim=-1, largest=False)
+    topk_mask = torch.zeros_like(full_mask).scatter(-1, topk_inds, True)
+    final_topk_mask = topk_mask & full_mask
+    ignored_request_mask = full_mask & (~final_topk_mask)
+    return final_topk_mask, ignored_request_mask
