@@ -288,8 +288,6 @@ class MVDPDPRunner:
         eval_episode_drone_cost = []
         eval_episode_profit = []
         
-        car_space = []
-        
         one_episode_courier_cost = torch.zeros(self.eval_envs.batch_size, device=self.device)
         one_episode_drone_cost = torch.zeros(self.eval_envs.batch_size, device=self.device)
         one_episode_profit = torch.zeros(self.eval_envs.batch_size, device=self.device)
@@ -344,7 +342,6 @@ class MVDPDPRunner:
                 eval_episode_courier_cost.append(one_episode_courier_cost[eval_dones].clone())
                 eval_episode_drone_cost.append(one_episode_drone_cost[eval_dones].clone())
                 eval_episode_profit.append(one_episode_profit[eval_dones].clone())
-                car_space.append(eval_infos["full_ratio"][eval_dones].clone())
 
             if eval_dones.any():
                 assert eval_dones.all()
@@ -354,8 +351,6 @@ class MVDPDPRunner:
                 eval_episode_serve_ratio_mean = torch.cat(eval_episode_serve_ratio).mean().item()
                 eval_episode_serve_stage1_ratio_mean = torch.cat(eval_episode_serve_stage1_ratio).mean().item()
                 eval_episode_serve_stage2_ratio_mean = torch.cat(eval_episode_serve_stage2_ratio).mean().item()
-                
-                car_space_mean = torch.cat(car_space).mean().item()
                 
                 eval_episode_stage1_rewards_mean = torch.cat(eval_episode_stage1_rewards).mean().item()
                 eval_episode_stage2_rewards_mean = torch.cat(eval_episode_stage2_rewards).mean().item()
