@@ -430,7 +430,6 @@ class DroneTransferEnv(MultiAgentEnv):
             condition_one_three = (current_relations == 3).sum(dim=-1) == 1
             
             if not (condition_all_zero | condition_one_three).all():
-                print(current_relations[~(condition_all_zero | condition_one_three)])
                 assert False, "Condition failed: Requests must have either all 0 relations or exactly one relation 3."
         
         self._global["courier_request"][batch_idx, courier_idx, request_idx] = RELATION.to_delivery.value
@@ -455,10 +454,6 @@ class DroneTransferEnv(MultiAgentEnv):
             assert ((current_relations_drone == 0) | (current_relations_drone == 1)).all(), "Drone request relation must be 0 or 1"
             assert ((current_relations_drone == 1).sum(dim=-1) <= 1).all(), "Multiple preassigns found"
         else:
-            if not (current_relations_drone==0).all():
-                print(current_relations_drone)
-                print(current_relations_drone.shape)
-                print(request_idx)
             assert (current_relations_drone==0).all(), "double check, only `no_relation` requests should be assigned."
         
         self._global["drone_request"][batch_idx, drone_idx, request_idx] = RELATION.to_delivery.value
