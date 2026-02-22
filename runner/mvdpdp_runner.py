@@ -161,7 +161,6 @@ class MVDPDPRunner:
             self.compute()
             train_infos = self.train()
             self.logger.info("train down")
-            # self.logger.info("current_heuristic {}".format(self.trainer.policy.heuristic_weight))
             # post process
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
             # save model
@@ -272,8 +271,6 @@ class MVDPDPRunner:
 
     @torch.no_grad()
     def eval(self, total_num_steps):
-        # self.trainer.policy.heuristic_weight = 0.5
-        
         eval_episode = 0
         eval_episode_rewards = []
         

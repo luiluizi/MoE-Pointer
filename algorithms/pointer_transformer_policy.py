@@ -2,12 +2,6 @@ import torch
 from utils.util import update_linear_schedule, update_cosine_schedule
 
 class PointerTransformerPolicy:
-    """
-    MAT Policy  class. Wraps actor and critic networks to compute actions and value function predictions.
-
-    :param args: (argparse.Namespace) arguments containing relevant model and policy information.
-    """
-
     def __init__(self, args, env_args, device, only_heuristic=False):
         self.device = device
         self.lr = args.lr
@@ -15,7 +9,6 @@ class PointerTransformerPolicy:
         self.weight_decay = args.weight_decay
         self.check_grad = args.check_grad
         self.only_heuristic = only_heuristic
-        self.heuristic_weight = 1.0
         self.algorithm = args.algorithm
 
         if self.algorithm in ["mapt"]:
@@ -58,22 +51,13 @@ class PointerTransformerPolicy:
         print(f'Non-trainable params: {NonTrainable_params}')
 
         self.optimizer = torch.optim.Adam(self.transformer.parameters(),
-                                          lr=self.lr, eps=self.opti_eps,
+                                          lr=self.lr, 
+                                          eps=self.opti_eps,
                                           weight_decay=self.weight_decay)
-        
         self.transformer.to(self.device)
-
-        
-        # def backward_hook(module, grad_input, grad_output):
-        #     if any(torch.isnan(g).any() for g in list(grad_input) + list(grad_output) if g is not None):
-        #         print(f"module {module} has nan grad")
-        #         import ipdb;ipdb.set_trace()
 
         if self.check_grad:
             torch.autograd.set_detect_anomaly(True)
-            # self.transformer.apply(lambda module: module.register_full_backward_hook(backward_hook))
-            # for name, module in self.transformer.named_modules():
-            #     module.name = name
 
     
     def lr_warmup(self, episode, warmup_episode):
@@ -97,27 +81,18 @@ class PointerTransformerPolicy:
             update_cosine_schedule(self.optimizer, episode, episodes, self.lr)
 
     def get_actions(self, obs, rnn_states_actor, rnn_states_critic, deterministic=False):
-
-        actions, action_log_probs, entropy, values = self.transformer.forward(obs, None, deterministic=deterministic, heuristic_weight=self.heuristic_weight)
-        
+        actions, action_log_probs, entropy, values = self.transformer.forward(obs, None, deterministic=deterministic)
         return values, actions, action_log_probs, rnn_states_actor, rnn_states_critic
 
     def get_values(self, obs, rnn_states_critic):
-
-        values = self.transformer.forward(obs, None, only_critic=True, heuristic_weight=self.heuristic_weight)
-
-        return values
+        return self.transformer.forward(obs, None, only_critic=True)
 
     def evaluate_actions(self, obs, rnn_states_actor, rnn_states_critic, actions):
-        actions, action_log_probs, entropy, values = self.transformer.forward(obs, actions, heuristic_weight=self.heuristic_weight)
-
+        actions, action_log_probs, entropy, values = self.transformer.forward(obs, actions)
         return values, action_log_probs, entropy
  
     def act(self, obs, rnn_states_actor, deterministic=True):
-        # rnn_states_critic = torch.zeros_like(rnn_states_actor)
-
-        actions, action_log_probs, entropy, values = self.transformer.forward(obs, None, deterministic=deterministic, heuristic_weight=self.heuristic_weight)
-
+        actions, action_log_probs, entropy, values = self.transformer.forward(obs, None, deterministic=deterministic)
         return actions, rnn_states_actor
 
     def save(self, save_dir, episode, is_best=False):

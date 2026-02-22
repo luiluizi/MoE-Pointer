@@ -15,8 +15,6 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
     def __init__(self, n_enc_bloc, n_dec_block, n_embd, n_head, rel_dim, device, max_len=1100, env_args=None, use_ar=True, use_heur_req=True, use_heur_veh=True, use_relation=True, use_node_emb=False, use_unbind_decode=False, use_nearest_station = False, only_heuristic=False, use_moe=False, hypers=None):
         super().__init__()
         IterMixin.__init__(self)
-        self.cnt = 0
-        
         self.n_embd = n_embd
         self.n_head = n_head
         self.rel_dim = rel_dim
@@ -108,8 +106,7 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
         
         self.dist_norm = 1.0 # Default dist norm
 
-    def forward(self, obs, input_actions=None, deterministic=False, only_critic=False, heuristic_weight = 1.0):  
-        self.cnt += 1
+    def forward(self, obs, input_actions=None, deterministic=False, only_critic=False):  
         nodes = obs["nodes"]
         drones = obs["drones"]
         couriers = obs["couriers"]

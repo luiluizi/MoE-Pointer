@@ -115,7 +115,7 @@ class MultiAgentPointerTransformer(nn.Module, IterMixin):
         self.station2_action_temp = None
         
 
-    def forward(self, obs, input_actions=None, deterministic=False, only_critic=False, heuristic_weight = 1.0):  
+    def forward(self, obs, input_actions=None, deterministic=False, only_critic=False):  
         self.cnt += 1
         nodes = obs["nodes"]
         drones = obs["drones"]

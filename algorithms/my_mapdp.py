@@ -145,7 +145,7 @@ class MAPDP(nn.Module, IterMixin):
         self.NO_ACTION = nn.Parameter(torch.randn(n_embd))
 
 
-    def forward(self, obs, input_actions=None, deterministic=False, only_critic=False, heuristic_weight = 1.0):
+    def forward(self, obs, input_actions=None, deterministic=False, only_critic=False):
         """
         Note: 不要对输入进行 inplace 操作
         Note: max_visible_
