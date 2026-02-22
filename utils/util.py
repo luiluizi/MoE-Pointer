@@ -39,7 +39,7 @@ def get_logger():
     cur = datetime.datetime.now()
     cur = cur.strftime('%b-%d-%Y_%H-%M-%S')
     
-    log_dir = './train_log/log'
+    log_dir = './train_log/'
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     log_filename = '{}.log'.format(cur)

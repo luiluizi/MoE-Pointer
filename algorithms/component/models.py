@@ -174,7 +174,7 @@ class MoEFFN(nn.Module):
 
 class DecodeBlock(nn.Module):
 
-    def __init__(self, n_embd, n_head, qkfeat_dim=None, use_moe=False):
+    def __init__(self, n_embd, n_head, qkfeat_dim=None, use_moe=True):
         super(DecodeBlock, self).__init__()
 
         self.ln1 = nn.LayerNorm(n_embd)

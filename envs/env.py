@@ -36,8 +36,6 @@ class DroneTransferEnv(MultiAgentEnv):
 
         self.dist_distribution = self.env_args["dist_distribution"]
         assert self.dist_distribution == "2D", "dist_distribution must be '2D'"
-       
-        self.dist_cost = self.env_args["dist_cost"]
 
         # Environment entity setup
         self.n_node = self.env_args["n_node"]

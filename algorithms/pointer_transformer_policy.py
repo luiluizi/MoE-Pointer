@@ -11,10 +11,9 @@ class PointerTransformerPolicy:
         self.only_heuristic = only_heuristic
         self.algorithm = args.algorithm
 
-        if self.algorithm in ["moe_pointer"]:
-            from algorithms.transfer_pointer_transformer_with_heter import MultiAgentPointerTransformer
-            print("use transfer_pointer_transformer_with_heter")
-            self.transformer = MultiAgentPointerTransformer(
+        if self.algorithm in ["moe_pointer", "prob_heuristic"]:
+            from algorithms.moe_pointer_transformer import MoePointerTransformer
+            self.transformer = MoePointerTransformer(
                 n_enc_bloc=args.n_enc_block, 
                 n_dec_block=args.n_dec_block, 
                 n_embd=args.n_embd, 
@@ -27,16 +26,7 @@ class PointerTransformerPolicy:
                 use_node_emb=not args.not_use_node_emb, 
                 only_heuristic=self.only_heuristic, 
                 use_unbind_decode=args.use_unbind_decode, 
-                use_moe=args.use_moe,
-                hypers={"other_node_prob": args.other_node_prob, "no_assign_prob": args.no_assign_prob, "load_balance_weight": args.load_balance_weight}
-            )
-        elif self.algorithm in ["prob_heuristic"]:
-            from algorithms.transfer_pointer_transformer2 import MultiAgentPointerTransformer
-            print("use transfer_pointer_transformer2")
-            self.transformer = MultiAgentPointerTransformer(
-                n_enc_bloc=args.n_enc_block, n_dec_block=args.n_dec_block, n_embd=args.n_embd, n_head=args.n_head, rel_dim=2*args.n_head, env_args=env_args, device=self.device,
-                use_ar=not args.not_use_ar, use_heur_req=not args.not_use_heur_req, use_heur_veh=not args.not_use_heur_veh, use_relation=not args.not_use_relation, use_nearest_station = args.use_nearest_station,
-                use_node_emb=not args.not_use_node_emb, only_heuristic=self.only_heuristic, use_unbind_decode=args.use_unbind_decode, use_moe=args.use_moe,
+                use_moe=not args.not_use_moe,
                 hypers={"other_node_prob": args.other_node_prob, "no_assign_prob": args.no_assign_prob, "load_balance_weight": args.load_balance_weight}
             )
         elif self.algorithm == "mapdp":

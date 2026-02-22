@@ -14,18 +14,18 @@ def get_config():
     parser.add_argument("--cuda_deterministic", action='store_false', default=True, help="by default, make sure random seed effective. if set, bypass such function.")
     parser.add_argument("--n_training_threads", type=int, default=1, help="Number of torch threads for training")
     parser.add_argument("--n_rollout_threads", type=int, default=64, help="Number of parallel envs for training rollouts")
-    parser.add_argument("--num_episodes", type=int, default=8192, help='Number of environment steps to train (default: 10e6)')
-    parser.add_argument("--user_name", type=str, default='xxx',help="[for wandb usage], to specify user's name for simply collecting training data.")
-    parser.add_argument("--use_wandb", action='store_false', default=False, help="[for wandb usage], by default True, will log date to wandb server. or else will use tensorboard to log data.")
+    parser.add_argument("--num_episodes", type=int, default=8192, help='Number of environment steps to train')
+    parser.add_argument("--user_name", type=str, default='xxx')
+    parser.add_argument("--use_wandb", action='store_false', default=False)
 
     # env parameters
-    parser.add_argument("--env_name", type=str, default='mvdpdp', help="specify the name of environment")
-    parser.add_argument("--env_config_path", type=str, default='./envs/mvdpdp/env_uniform.yaml', help="specify the path of environment config.")
+    parser.add_argument("--env_name", type=str, default='dmpdp')
+    parser.add_argument("--env_config_path", type=str, default='./envs/config/synthetic_small.yaml')
 
     # optimizer parameters
     parser.add_argument("--lr", type=float, default=3e-5)
     parser.add_argument("--warmup_ratio", type=float, default=1/4, help="warmup epoch ratio.")
-    parser.add_argument("--opti_eps", type=float, default=1e-5, help='RMSprop optimizer epsilon (default: 1e-5)')
+    parser.add_argument("--opti_eps", type=float, default=1e-5)
     parser.add_argument("--weight_decay", type=float, default=0)
     parser.add_argument("--not_use_linear_lr_decay", action='store_true', default=False, help='not use a linear schedule on the learning rate')
     parser.add_argument("--use_cosine_lr_decay", action='store_true', default=False, help='use a cosine schedule on the learning rate')
@@ -33,7 +33,7 @@ def get_config():
     parser.add_argument("--ppo_epoch", type=int, default=1, help='number of ppo epochs (default: 15)')
     parser.add_argument("--use_clipped_value_loss", action='store_true', default=False, help="by default, don't clip loss value. If set, do clip loss value.")
     parser.add_argument("--clip_param", type=float, default=0.1, help='ppo clip parameter.')
-    parser.add_argument("--mini_batch_size", type=int, default=4, help='ppo mini_batch_size')
+    parser.add_argument("--mini_batch_size", type=int, default=64, help='ppo mini_batch_size')
     parser.add_argument("--entropy_coef", type=float, default=0.1, help='entropy term coefficient')
     parser.add_argument("--value_loss_coef", type=float, default=1, help='value loss coefficient')
     parser.add_argument("--use_max_grad_norm", action='store_false', default=True, help="by default, use max norm of gradients. If set, do not use.")
@@ -73,7 +73,7 @@ def get_config():
     parser.add_argument("--not_use_relation", action="store_true", default=False, help="don't use relation-aware attention.")
     parser.add_argument("--not_use_node_emb", action="store_true", default=False, help="don't use node embedding for real dataset")
     parser.add_argument("--use_unbind_decode", action="store_true", default=False, help="don't bind emb and action as decoder input.")
-    parser.add_argument("--use_moe", action="store_true", default=False, help="use MoE structure.")
+    parser.add_argument("--not_use_moe", action="store_true", default=False, help="don't use MoE structure.")
     parser.add_argument("--check_grad", action="store_true", default=False, help="check grad is finite")
 
     # dataset

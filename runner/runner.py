@@ -12,7 +12,7 @@ from algorithms.rolling_horizon_policy import RollingHorizonPolicy
 from envs.env import DroneTransferEnv
 from utils.util import get_logger
 
-class MVDPDPRunner:
+class DMPDPRunner:
     """Runner class to perform training, evaluation. and data collection for SMAC. See parent class for details."""
     def __init__(self, config):
         self.all_args = config['all_args']

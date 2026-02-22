@@ -11,12 +11,12 @@ from pathlib import Path
 from config import get_config
 from envs.env import DroneTransferEnv
 from envs.env_lade import DroneTransferEnvLADE
-from runner.mvdpdp_runner import MVDPDPRunner as Runner
+from runner.runner import DMPDPRunner as Runner
 from utils.util import get_logger
 
 
 def make_env(all_args, env_args, device, is_train):
-    assert all_args.env_name == "mvdpdp"
+    assert all_args.env_name == "dmpdp"
     batch_size = all_args.n_rollout_threads if is_train else all_args.eval_episodes
     kwargs = {
         "env_args": env_args,
@@ -79,7 +79,6 @@ def main(args):
 
     # cuda
     if all_args.cuda and torch.cuda.is_available():
-        # 这里改一下：如果有指定的gpu id则使用该gpu，没有的话就使用第一个gpu
         print("choose to use gpu...")
         device = torch.device(f"cuda:{all_args.gpu_id}")
         torch.set_num_threads(all_args.n_training_threads)
@@ -91,7 +90,7 @@ def main(args):
         device = torch.device("cpu")
         torch.set_num_threads(all_args.n_training_threads)
 
-    run_dir = Path("/mnt/jfs6/g-bairui/results") / all_args.env_name / env_args["scenario"] / all_args.algorithm / str(all_args.gpu_id)
+    run_dir = Path("./results") / all_args.env_name / env_args["scenario"] / all_args.algorithm
     if not all_args.only_eval and not run_dir.exists():
         os.makedirs(str(run_dir))
 
@@ -146,7 +145,6 @@ def main(args):
         runner.eval(None)
     else:
         runner.run()
-
 
 if __name__ == "__main__":
     main(sys.argv[1:])
