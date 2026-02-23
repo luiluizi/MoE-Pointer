@@ -61,12 +61,12 @@ class LADEDataGenerator:
     def load_data(self):
         """Load pickup and delivery CSV data"""
         config = CITY_CONFIGS[self.city]
-        base_dir = Path("./data/LADE")
+        base_dir = project_root / "data/LADE"
         
-        # pickup_path = base_dir / config["pickup_csv"]
-        # delivery_path = base_dir / config["delivery_csv"]
-        pickup_path = config["pickup_csv"]
-        delivery_path = config["delivery_csv"]
+        pickup_path = base_dir / config["pickup_csv"]
+        delivery_path = base_dir / config["delivery_csv"]
+        # pickup_path = config["pickup_csv"]
+        # delivery_path = config["delivery_csv"]
         print(pickup_path)
         
         pickup_df = pd.read_csv(pickup_path)
@@ -648,7 +648,7 @@ def plot_nodes_and_stations(data, city, split, save_dir):
 
 def main():
     parser = argparse.ArgumentParser(description='Generate LADE dataset')
-    default_yaml_path = '../../envs/config/lade.yaml'
+    default_yaml_path = project_root / 'envs/config/lade.yaml'
     parser.add_argument('--yaml', type=str, default=str(default_yaml_path), 
                        help=f'YAML configuration file path (default: {default_yaml_path}）')
     parser.add_argument('--city', type=str, choices=['hz', 'cq', 'sh'], default='hz')
@@ -664,7 +664,8 @@ def main():
     parser.add_argument('--test_days', type=int, default=20, help='Number of days for test set')
     parser.add_argument('--seed', type=int, default=DEFAULT_SEED, help='Random seed')
     parser.add_argument('--seed_env', type=int, default=DEFAULT_SEED_ENV, help='Environment random seed')
-    parser.add_argument('--output_dir', type=str, default='./processed', help='Output directory')
+    output_dir = project_root / "data/LADE/processed"
+    parser.add_argument('--output_dir', type=str, default=output_dir, help='Output directory')
     parser.add_argument('--split', type=str, choices=['train', 'test', 'both'], default='both', 
                     help='Generate training set, test set, or both')
     parser.add_argument('--draw', action='store_true', 
@@ -768,7 +769,6 @@ def main():
             print(f"Plotting distribution of nodes and stations for {split} set...")
             images_dir = output_dir / 'images'
             plot_nodes_and_stations(data, config['city'], split, images_dir)
-
 
 if __name__ == '__main__':
     main()

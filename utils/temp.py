@@ -1,6 +1,8 @@
 import tree
 import torch
-from envs.env import DroneTransferEnv
+import torch.utils
+import torch.utils.data
+from envs.mvdpdp.env import DroneTransferEnv
 
 class ReplayBuffer(object):
     """
@@ -37,10 +39,13 @@ class ReplayBuffer(object):
         self.advantages = torch.zeros(self.episode_length, self.n_rollout_threads, device=self.device)
 
         self.actions = [None] * self.episode_length
-        # Store the log probability of taking a certain action at each time step
+
+        # 存储每个时间步采取某动作时的log概率
         self.action_log_probs = torch.zeros(self.episode_length, self.n_rollout_threads, device=self.device)
         self.rewards = torch.zeros(self.episode_length, self.n_rollout_threads, device=self.device)
+
         self.masks = torch.ones(self.episode_length + 1, self.n_rollout_threads, dtype=torch.bool, device=self.device)
+
         self.step = 0
 
     def insert(self, obs, rnn_states_actor, rnn_states_critic, actions, action_log_probs,
@@ -68,9 +73,11 @@ class ReplayBuffer(object):
         self.value_preds[self.step] = value_preds
         self.rewards[self.step] = rewards
         self.masks[self.step + 1] = masks
+        # 达到episode_length后重置
         self.step = (self.step + 1) % self.episode_length
 
     def after_update(self):
+        #在策略/价值网络更新结束后，需要让 buffer 保留最后一个 time step 的状态，作为下一轮数据收集的初始状态。
         """Copy last timestep data to first index. Called after update to model."""
         self.obs[0] = self.obs[-1]
         self.rnn_states[0] = self.rnn_states[-1]
@@ -83,6 +90,8 @@ class ReplayBuffer(object):
         :param next_value: (np.ndarray) value predictions for the step after the last episode step.
         :param value_normalizer: (PopArt) If not None, PopArt value normalizer instance.
         """
+        # next_value从哪来
+
         self.value_preds[-1] = next_value
         gae = 0
         for step in reversed(range(self.rewards.shape[0])):
@@ -92,15 +101,29 @@ class ReplayBuffer(object):
                         - value_normalizer.denormalize(self.value_preds[step])
                 gae = delta + self.gamma * self.gae_lambda * self.masks[step + 1] * gae
 
+                # here is a patch for mpe, whose last step is timeout instead of terminate
+                # if self.env_name == "MPE" and step == self.rewards.shape[0] - 1:
+                #     gae = 0
+
                 self.advantages[step] = gae
                 self.returns[step] = gae + value_normalizer.denormalize(self.value_preds[step])
             else:
                 delta = self.rewards[step] + self.gamma * self.value_preds[step + 1] * \
                         self.masks[step + 1] - self.value_preds[step]
                 gae = delta + self.gamma * self.gae_lambda * self.masks[step + 1] * gae
+
+                # here is a patch for mpe, whose last step is timeout instead of terminate
+                # dose this patch useful?
+                # if self.env_name == "MPE" and step == self.rewards.shape[0] - 1:
+                #     gae = 0
+
                 self.advantages[step] = gae
                 self.returns[step] = gae + self.value_preds[step]
         
+        # TODO: standardization advantages
+        # TODO: Advatange Normalization should done in group.
+        # TODO: get statistics of advantages.
+        # NOTE: this is correct if batch_size is large.
         if self.advantages.shape[1] > 1:
             mean_advantages = self.advantages.mean(1, keepdim=True)
             std_advantages = self.advantages.std(1, keepdim=True)
@@ -125,6 +148,7 @@ class ReplayBuffer(object):
         rand = torch.randperm(batch_size, device=self.env.device)
         sampler = [rand[i * mini_batch_size:(i + 1) * mini_batch_size] for i in range(num_mini_batch)]
 
+        # we don't use agent shuffle.
         batched_obs = tree.map_structure(lambda *args: torch.cat(args) if isinstance(args[0], torch.Tensor) else None, *self.obs)
         batched_rnn_states = self.rnn_states[:-1].flatten(end_dim=1)
         batched_rnn_states_critic = self.rnn_states_critic[:-1].flatten(end_dim=1)

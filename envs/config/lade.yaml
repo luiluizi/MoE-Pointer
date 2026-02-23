@@ -14,7 +14,7 @@ max_consider_requests: -1
 max_capacity: 5
 dist_distribution: 2D
 max_dist: 10
-n_node_tot: 100
+n_node_tot: 144
 
 dist_cost_drone: 0.3
 dist_cost_courier: 0.2
