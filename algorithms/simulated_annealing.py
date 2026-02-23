@@ -3,8 +3,12 @@ import copy
 from .component.metaheuristic import MetaheuristicBase
 
 class SimulatedAnnealing(MetaheuristicBase):
-    def __init__(self, N, M, K, D, T, start_K, start_D, capacity, join_time_K, join_time_D, dist, cost_K, cost_D, from_req, to_req, station1_req, station2_req, appear, value, penalty, pre_load_K_stage1, pre_load_K_stage3, pre_load_D, wait_stage2, wait_stage3, drone_speed_ratio=3.0, courier_stage1_temp=None, **kwargs):
-        super().__init__(N, M, K, D, T, start_K, start_D, capacity, join_time_K, join_time_D, dist, cost_K, cost_D, from_req, to_req, station1_req, station2_req, appear, value, penalty, pre_load_K_stage1, pre_load_K_stage3, pre_load_D, wait_stage2, wait_stage3, drone_speed_ratio, courier_stage1_temp, **kwargs)
+    def __init__(self, N, M, K, D, T, start_K, start_D, capacity, join_time_K, join_time_D, dist, 
+                 cost_K, cost_D, from_req, to_req, station1_req, station2_req, appear, value, penalty, 
+                 pre_load_K_stage1, pre_load_K_stage3, pre_load_D, wait_stage2, wait_stage3, drone_speed_ratio=3.0, courier_stage1_temp=None, **kwargs):
+        super().__init__(N, M, K, D, T, start_K, start_D, capacity, join_time_K, join_time_D, dist, 
+                         cost_K, cost_D, from_req, to_req, station1_req, station2_req, appear, value, penalty, 
+                         pre_load_K_stage1, pre_load_K_stage3, pre_load_D, wait_stage2, wait_stage3, drone_speed_ratio, courier_stage1_temp, **kwargs)
 
     def initial_solution(self):
         solution_K, solution_D = super().initial_solution()
@@ -14,12 +18,12 @@ class SimulatedAnnealing(MetaheuristicBase):
         return solution_K, solution_D
 
     def neighbor_solution(self, solution_K, solution_D):
-        # 随机选择一个邻域操作
+        # Randomly select a neighborhood operation
         retries = 0
         while retries < 5:
             new_solution_K = copy.deepcopy(solution_K)
             new_solution_D = copy.deepcopy(solution_D)
-            # 随机选择一个请求
+            # Randomly select a request
             if self.M == 0:
                 break
             m = self.rng.integers(0, self.M)
@@ -27,10 +31,9 @@ class SimulatedAnnealing(MetaheuristicBase):
             old_k2 = -1
             old_d = -1
             
-            # TODO 实现1 每次清空三阶段的全部操作，重新进行分配 实现2 按照概率 要不清空三阶段全部操作，要不只清空某阶段操作
             old_k1, old_d, old_k2 = self.find_old_id(new_solution_K, new_solution_D, m)
-            # 按概率重新分配或不分配请求
-            # 不能在任一阶段有预分配
+            # Reassign or unassign the request probabilistically
+            # No pre-assignment allowed in any stage
             # if (not ((old_k1 != -1 and self.pre_load_K_stage1[old_k1][m]) or (old_k2 != -1 and self.pre_load_K_stage3[old_k2][m]) or (old_d != -1 and self.pre_load_D[old_d][m]))) and self.rng.random() < math.exp(-1 / ( retries + 1)):
             #     self.remove_stage1(new_solution_K, new_solution_D, m)
             #     self.remove_stage2(new_solution_K, new_solution_D, m)
@@ -44,7 +47,7 @@ class SimulatedAnnealing(MetaheuristicBase):
                     end_time = self.T
                 self.reassign_stage1(new_solution_K, new_solution_D, m, end_time)
             elif p1 < 0.6:
-                # 查看阶段3开始时间
+                # Check start time of Stage 3
                 end_time = self.find_pickup2_time(solution_K, m)
                 if end_time is None:
                     end_time = self.T
@@ -52,13 +55,13 @@ class SimulatedAnnealing(MetaheuristicBase):
             else: 
                 self.reassign_stage3(new_solution_K, new_solution_D, m, self.T)
                 
-            # 更新车辆位置和容量
+            # Update vehicle positions and capacities
             self._update_all_vehicles(new_solution_K, new_solution_D)
-            # 检查新解是否满足约束
+            # Check if the new solution satisfies all constraints
             if self.check_constraints(new_solution_K, new_solution_D):
                 return new_solution_K, new_solution_D
             retries += 1
-        # 未找到合法解，返回原解
+        # No valid solution found, return the original solution
         return solution_K, solution_D
 
     def objective_function(self, solution_K, solution_D):
@@ -70,12 +73,12 @@ class SimulatedAnnealing(MetaheuristicBase):
         stage2_reward = 0.15   
         stage3_reward = 1.0   
         
-        # 记录每个请求完成的阶段
+        # Record the completed stages for each request
         request_stage1_done = set()
         request_stage2_done = set()
         request_stage3_done = set()
         
-        # 统计Courier的Stage1和Stage3收益
+        # Calculate rewards for Courier's Stage 1 and Stage 3
         for k in range(self.K):
             for t in range(self.T + 1):
                 for m in solution_K[k][t]['delivery1']:
@@ -92,7 +95,7 @@ class SimulatedAnnealing(MetaheuristicBase):
                     curr_location = solution_K[k][t]['location']
                     total_cost += self.cost_K[prev_location][curr_location]
 
-        # 统计Drone的Stage2收益
+        # Calculate rewards for Drone's Stage 2
         for d in range(self.D):
             for t in range(self.T + 1):
                 for m in solution_D[d][t]['delivery']:
@@ -104,7 +107,7 @@ class SimulatedAnnealing(MetaheuristicBase):
                     curr_location = solution_D[d][t]['location']
                     total_cost += self.cost_D[prev_location][curr_location]
         
-        # 未完成的请求的总惩罚（只有未完成Stage3的请求才计入惩罚）
+        # Total penalty for unserved requests (only requests with incomplete Stage 3 are counted)
         total_penalty = sum(self.penalty[m] for m in unserved)
         return total_value - total_cost - total_penalty
 
@@ -147,6 +150,6 @@ class SimulatedAnnealing(MetaheuristicBase):
         if not show:
             return (_pickup1, _pickup2, _pickup_d, _location_k, _location_d)
 
-        # 使用基类方法打印结果
+        # Use base class method to convert solution to output format
         self._print_solution(best_solution_K, best_solution_D, best_obj, is_genetic=False)
         return _pickup1, _pickup2, _pickup_d, _location_k, _location_d

@@ -46,7 +46,7 @@ class Courier:
         self.time_limit = time_limit
 
     def can_pickup(self, request, stage_id):
-        # 能否到达请求节点并 pickup
+        # Check if the vehicle can reach the request node and perform pickup
         if stage_id == 1:
             travel_time = self.dist_matrix[self.current_node][request.from_node]
             cost = self.cost_matrix[self.current_node][request.from_node]
@@ -63,8 +63,8 @@ class Courier:
         return False, travel_time, cost
 
     def pickup_request(self, request, stage_id, consider_others=True):
-        # 前往请求节点 pickup
-        # 更新车辆状态
+        # Travel to the request node for pickup
+        # Update vehicle status
         from_node = request.from_node if stage_id == 1 else request.station2_node
         
         self.available_time += self.dist_matrix[self.current_node][from_node]
@@ -79,24 +79,24 @@ class Courier:
         
         if stage_id == 1:
             self.to_pickup_requests_stage1.remove(request)
-            # 更新请求状态
+            # Update request status
             request.picked_up_stage1 = True
             request.pickup_time_stage1 = self.times[-1]
             request.serving_courier_stage1 = self.courier_id
-            # 放入待delivery列表
+            # Add to pending delivery list
             self.to_delivery_requests_stage1.append(request)
         elif stage_id == 3:
             self.to_pickup_requests_stage3.remove(request)
-            # 更新请求状态
+            # Update request status
             request.picked_up_stage3 = True
             request.pickup_time_stage3 = self.times[-1]
             request.serving_courier_stage3 = self.courier_id
-            # 放入待delivery列表
+            # Add to pending delivery list
             self.to_delivery_requests_stage3.append(request)
         
         if not consider_others:
             return
-        # 检查有没有其他当前节点的请求
+        # Check for other requests at the current node
         for req in self.to_pickup_requests_stage1.copy():
             if req.from_node == self.current_node and self.can_pickup(req, 1)[0]:
                 self.pickup_request(req, 1, consider_others=False)
@@ -111,7 +111,7 @@ class Courier:
                 self.delivery_request(req, 3, consider_others=False)
 
     def can_delivery(self, request, stage_id):
-        # 当前能否delivery请求
+        # Check if the request can be delivered at present
         if stage_id == 1:
             travel_time = self.dist_matrix[self.current_node][request.station1_node]
             cost = self.cost_matrix[self.current_node][request.station1_node]
@@ -124,10 +124,9 @@ class Courier:
         return False, travel_time, cost
 
     def delivery_request(self, request, stage_id, consider_others=True):
-        # 前往请求节点 delivery
-        # 更新车辆状态
+        # Travel to the request node for delivery
+        # Update vehicle status
         to_node = request.station1_node if stage_id == 1 else request.to_node
-        
         self.available_time += self.dist_matrix[self.current_node][to_node]
         if self.current_node != to_node:
             self.route.append(to_node)
@@ -140,23 +139,23 @@ class Courier:
         
         if stage_id == 1:
             self.to_delivery_requests_stage1.remove(request)
-            # 更新请求状态
+            # Update request status
             request.delivered_stage1 = True
             request.delivery_time_stage1 = self.times[-1]
             request.serving_courier_stage1 = self.courier_id
-            # 放入已服务列表
+            # Add to served requests list
             self.served_requests_stage1.append(request)
         elif stage_id == 3:
             self.to_delivery_requests_stage3.remove(request)
-            # 更新请求状态
+            # Update request status
             request.delivered_stage3 = True
             request.delivery_time_stage3 = self.times[-1]
             request.serving_courier_stage3 = self.courier_id
-            # 放入已服务列表
+            # Add to served requests list
             self.served_requests_stage3.append(request)
         if not consider_others:
             return
-        # 检查有没有其他当前节点的请求
+        # Check for other requests at the current node
         for req in self.to_pickup_requests_stage1.copy():
             if req.from_node == self.current_node and self.can_pickup(req, 1)[0]:
                 self.pickup_request(req, 1, consider_others=False)
@@ -189,7 +188,7 @@ class Drone:
         self.drone_speed_ratio = drone_speed_ratio
 
     def can_pickup(self, request):
-        # 能否到达请求节点并 pickup
+        # Check if the drone can reach the request node and perform pickup
         travel_time = np.ceil(self.dist_matrix[self.current_node][request.station1_node] / self.drone_speed_ratio).astype(int)
         pickup_time = self.available_time + travel_time
         cost = self.cost_matrix[self.current_node][request.station1_node]
@@ -198,8 +197,8 @@ class Drone:
         return False, travel_time, cost
 
     def pickup_request(self, request, consider_others=True):
-        # 前往请求节点 pickup
-        # 更新车辆状态
+        # Travel to the request node for pickup
+    # Update drone status
         self.available_time += np.ceil(self.dist_matrix[self.current_node][request.station1_node] / self.drone_speed_ratio).astype(int)
         if self.current_node != request.station1_node:
             self.route.append(request.station1_node)
@@ -211,19 +210,19 @@ class Drone:
             self.load[-1] += 1
         self.to_pickup_requests.remove(request)
 
-        # 更新请求状态
+        # Update request status
         request.picked_up_stage2 = True
         request.pickup_time_stage2 = self.times[-1]
         request.serving_drone = self.drone_id
 
-        # 放入待delivery列表
+        # Add to pending delivery list
         self.to_delivery_requests.append(request)
 
         if not consider_others:
             return
 
     def can_delivery(self, request):
-        # 当前能否delivery请求
+        # Check if the request can be delivered at present
         travel_time = np.ceil(self.dist_matrix[self.current_node][request.station2_node] / self.drone_speed_ratio).astype(int)
         delivery_time = self.available_time + travel_time
         cost = self.cost_matrix[self.current_node][request.station2_node]
@@ -233,8 +232,8 @@ class Drone:
         return False, travel_time, cost
 
     def delivery_request(self, request, consider_others=True):
-        # 前往请求节点 delivery
-        # 更新车辆状态
+        # Travel to the request node for delivery
+        # Update drone status
         self.available_time += np.ceil(self.dist_matrix[self.current_node][request.station2_node] / self.drone_speed_ratio).astype(int)
         if self.current_node != request.station2_node:
             self.route.append(request.station2_node)
@@ -245,47 +244,46 @@ class Drone:
         else:
             self.load[-1] -= 1
         self.to_delivery_requests.remove(request)
-
-        # 更新请求状态
+        # Update request status
         request.delivered_stage2 = True
         request.delivery_time_stage2 = self.times[-1]
         request.serving_drone = self.drone_id
-
-        # 放入已服务列表
+        # Add to served requests list
         self.served_requests.append(request)
-
         if not consider_others:
             return
 
 class NearestHeuristic:
-    def __init__(self, N, M, K, D, T, start_K, start_D, capacity, join_time_K, join_time_D, dist, cost_K, cost_D, from_req, to_req, station1_req, station2_req, appear, value, penalty, pre_load_K_stage1, pre_load_K_stage3, pre_load_D, wait_stage2, wait_stage3, drone_speed_ratio=4.0, courier_stage1_temp=None, **kwargs):
+    def __init__(self, N, M, K, D, T, start_K, start_D, capacity, join_time_K, join_time_D, dist, 
+                 cost_K, cost_D, from_req, to_req, station1_req, station2_req, appear, value, penalty, 
+                 pre_load_K_stage1, pre_load_K_stage3, pre_load_D, wait_stage2, wait_stage3, drone_speed_ratio=4.0, courier_stage1_temp=None, **kwargs):
         """
-        :param N: 节点数
-        :param M: 请求数
-        :param K: courier数
-        :param D: drone数
-        :param T: 时间帧数
-        :param start_K: 每个courier的起点
-        :param start_D: 每个drone的起点
-        :param capacity: 每辆车的容量
-        :param join_time_K: 每个courier开始工作的时间，use for courier whose time_left != 0
-        :param join_time_D: 每个drone开始工作的时间，use for drone whose time_left != 0
-        :param dist: 距离矩阵
-        :param cost_K: courier花费矩阵
-        :param cost_D: drone花费矩阵
-        :param from_req: 每个请求的起点
-        :param to_req: 每个请求的终点
-        :param station1_req: 每个请求的station1
-        :param station2_req: 每个请求的station2
-        :param appear: 每个请求的出现时间
-        :param value: 每个请求的价值
-        :param penalty: 每个请求的惩罚
-        :param pre_load_K_stage1: K x M，表示请求是否已经在stage1装载在了courier上
-        :param pre_load_K_stage3: K x M，表示请求是否已经在stage3装载在了courier上
-        :param pre_load_D: D x M，表示请求是否已经装载在了drone上
-        :param wait_stage2: M，表示请求是否在等待进入stage2
-        :param wait_stage3: M，表示请求是否在等待进入stage3
-        :courier_stage1_temp: 记录完成每个订单stage1配送的courier，为了防止stage1和3使用同一个courier
+        :param N: Number of nodes
+        :param M: Number of requests
+        :param K: Number of couriers
+        :param D: Number of drones
+        :param T: Number of time frames
+        :param start_K: Starting point of each courier
+        :param start_D: Starting point of each drone
+        :param capacity: Capacity of each vehicle
+        :param join_time_K: Start working time of each courier, used for couriers with non-zero time_left
+        :param join_time_D: Start working time of each drone, used for drones with non-zero time_left
+        :param dist: Distance matrix
+        :param cost_K: Cost matrix for couriers
+        :param cost_D: Cost matrix for drones
+        :param from_req: Starting point of each request
+        :param to_req: Destination of each request
+        :param station1_req: Station 1 of each request
+        :param station2_req: Station 2 of each request
+        :param appear: Appearance time of each request
+        :param value: Value of each request
+        :param penalty: Penalty for each request
+        :param pre_load_K_stage1: K x M matrix, indicating whether a request has been pre-loaded on a courier in Stage 1
+        :param pre_load_K_stage3: K x M matrix, indicating whether a request has been pre-loaded on a courier in Stage 3
+        :param pre_load_D: D x M matrix, indicating whether a request has been pre-loaded on a drone
+        :param wait_stage2: M-dimensional array, indicating whether a request is waiting to enter Stage 2
+        :param wait_stage3: M-dimensional array, indicating whether a request is waiting to enter Stage 3
+        :param courier_stage1_temp: Records the courier that completed Stage 1 delivery for each order, to prevent the same courier from being used for both Stage 1 and Stage 3
         """
         self.N = N
         self.M = M
@@ -327,7 +325,7 @@ class NearestHeuristic:
             self.couriers.append(Courier(k, self.start_K[k], self.capacity[k], self.join_time_K[k], self.dist, self.cost_K, self.T))
         for d in range(self.D):
             self.drones.append(Drone(d, self.start_D[d], self.join_time_D[d], self.dist, self.cost_D, self.T, self.drone_speed_ratio))
-            # 处理预装载的请求
+        # Process pre-loaded requests
         for m in range(self.M):
             for k in range(self.K):
                 if self.pre_load_K_stage1[k][m]:
@@ -373,7 +371,7 @@ class NearestHeuristic:
         total_value = 0
         total_cost = 0
         total_penalty = 0
-        # 计算总价值
+        # Calculate total value
         for req in self.requests:
             if req.delivered_stage1:
                 total_value += self.value[req.req_id]
@@ -381,14 +379,14 @@ class NearestHeuristic:
                 total_value += self.value[req.req_id]
             if req.delivered_stage3:
                 total_value += self.value[req.req_id]
-        # 计算总花费
+        # Calculate total cost
         for cou in self.couriers:
             for i in range(len(cou.route)-1):
                 total_cost += self.cost_K[cou.route[i]][cou.route[i+1]]
         for dro in self.drones:
             for i in range(len(dro.route)-1):
                 total_cost += self.cost_D[dro.route[i]][dro.route[i+1]]
-        # 计算总惩罚
+        # Calculate total penalty
         for req in self.requests:
             if not req.delivered_stage3:
                 total_penalty += self.penalty[req.req_id]
@@ -403,7 +401,7 @@ class NearestHeuristic:
                 assert(req.delivered_stage2)
             
             if appear_time <= t:
-                # 尝试分配给代价最小的可接取请求的courier
+                # Try to assign to the courier with the minimum cost that can accept the request
                 min_cost = np.inf
                 selected_courier = None
                 selected_travel_time = 0
@@ -431,7 +429,7 @@ class NearestHeuristic:
         request_removing = []
         for req in requests:
             if req.delivery_time_stage1 <= t:
-                # 尝试分配给代价最小的可接取请求的drone
+                # Try to assign to the drone with the minimum cost that can accept the request
                 assert(req.delivered_stage1)
                 min_cost = np.inf
                 selected_drone = None
@@ -456,7 +454,7 @@ class NearestHeuristic:
         for cou in self.couriers:
             if t < cou.available_time:
                 continue
-            # 检查是否有请求需要delivery，选择cost最小的请求
+            # Check for requests requiring delivery and select the one with the minimum cost
             min_cost = np.inf
             selected_request = None
             selected_travel_time = 0
@@ -473,7 +471,7 @@ class NearestHeuristic:
             if selected_request:
                 cou.delivery_request(selected_request, stage_id)
                 next_stage_requests.append(selected_request)
-            # 检查是否有请求需要pickup，选择cost最小的请求
+            # Check for requests requiring pickup and select the one with the minimum cost
             min_cost = np.inf
             selected_request = None
             selected_travel_time = 0
@@ -492,7 +490,7 @@ class NearestHeuristic:
         for dro in self.drones:
             if t < dro.available_time:
                 continue
-            # 检查是否有请求需要delivery，选择cost最小的请求
+            # Check for requests requiring delivery and select the one with the minimum cost
             min_cost = np.inf
             selected_request = None
             selected_travel_time = 0
@@ -506,7 +504,7 @@ class NearestHeuristic:
             if selected_request:
                 dro.delivery_request(selected_request)
                 next_stage_requests.append(selected_request)
-            # 检查是否有请求需要pickup，选择cost最小的请求
+            # Check for requests requiring pickup and select the one with the minimum cost
             min_cost = np.inf
             selected_request = None
             selected_travel_time = 0
@@ -526,7 +524,7 @@ class NearestHeuristic:
         request_stage1 = []
         request_stage2 = []
         request_stage3 = []
-        # 处理预装载的请求
+        # Process pre-loaded requests
         for req in self.requests:
             if not req.picked_up_stage1:
                 request_stage1.append(req)
@@ -536,13 +534,13 @@ class NearestHeuristic:
                 request_stage3.append(req)    
         request_stage1 = sorted(request_stage1, key=lambda x: x.appear_time)
         
-        # 按时间顺序，分配pickup和delivery
+        # Assign pickups and deliveries in chronological order
         for t in range(self.T + 1):
-            # 一阶段订单
+            # Stage 1 request
             request_stage1 = self.request_assign_courier(request_stage1, t, 1)
-            # 二阶段订单
+            # Stage 2 request
             request_stage2 = self.request_assign_drone(request_stage2, t)
-            # 三阶段订单
+            # Stage 3 request
             request_stage3 = self.request_assign_courier(request_stage3, t, 3)
             # courier action
             request_stage2 = self.courier_action(t, 1, request_stage2)
@@ -551,7 +549,7 @@ class NearestHeuristic:
             
             self.courier_action(t, 3, [])
             
-        # 计算 objective function
+        # calculate objective function
         objective_value = self.objective_function()
 
         _pickup1 = np.zeros((self.K, self.M, self.T + 1), dtype=bool)
