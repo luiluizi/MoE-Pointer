@@ -14,32 +14,32 @@ class MetaheuristicBase:
     
     def __init__(self, N, M, K, D, T, start_K, start_D, capacity, join_time_K, join_time_D, dist, cost_K, cost_D, from_req, to_req, station1_req, station2_req, appear, value, penalty, pre_load_K_stage1, pre_load_K_stage3, pre_load_D, wait_stage2, wait_stage3, drone_speed_ratio=3.0, courier_stage1_temp=None, **kwargs):
         """
-        :param N: 节点数
-        :param M: 请求数
-        :param K: courier数
-        :param D: drone数
-        :param T: 时间帧数
-        :param start_K: 每个courier的起点
-        :param start_D: 每个drone的起点
-        :param capacity: 每辆车的容量
-        :param join_time_K: 每个courier开始工作的时间，use for vehicles whose time_left != 0
-        :param join_time_D: 每个drone开始工作的时间，use for vehicles whose time_left != 0
-        :param dist: 距离矩阵
-        :param cost_K: courier花费矩阵
-        :param cost_D: drone花费矩阵
-        :param from_req: 每个请求的起点
-        :param to_req: 每个请求的终点
-        :param station1_req: 每个请求的station1
-        :param station2_req: 每个请求的station2
-        :param appear: 每个请求的出现时间
-        :param value: 每个请求的价值
-        :param penalty: 每个请求的惩罚
-        :param pre_load_K_stage1: K x M，表示请求是否已经在stage1装载在了courier上
-        :param pre_load_K_stage3: K x M，表示请求是否已经在stage3装载在了courier上
-        :param pre_load_D: D x M，表示请求是否已经装载在了drone上
-        :param wait_stage2: M，表示请求是否在等待进入stage2
-        :param wait_stage3: M，表示请求是否在等待进入stage3
-        :param courier_stage1_temp: 记录完成每个订单stage1配送的courier，为了防止stage1和3使用同一个courier
+        :param N: Number of nodes
+        :param M: Number of requests/orders
+        :param K: Number of couriers
+        :param D: Number of drones
+        :param T: Number of time frames
+        :param start_K: Starting point of each courier
+        :param start_D: Starting point of each drone
+        :param capacity: Capacity of each vehicle
+        :param join_time_K: Start working time of each courier, used for vehicles with time_left != 0
+        :param join_time_D: Start working time of each drone, used for vehicles with time_left != 0
+        :param dist: Distance matrix
+        :param cost_K: Cost matrix for couriers
+        :param cost_D: Cost matrix for drones
+        :param from_req: Starting point of each request
+        :param to_req: End point of each request
+        :param station1_req: Station 1 for each request
+        :param station2_req: Station 2 for each request
+        :param appear: Appearance time of each request
+        :param value: Value of each request
+        :param penalty: Penalty for each request
+        :param pre_load_K_stage1: K x M matrix, indicating whether a request has been loaded onto a courier in stage 1
+        :param pre_load_K_stage3: K x M matrix, indicating whether a request has been loaded onto a courier in stage 3
+        :param pre_load_D: D x M matrix, indicating whether a request has been loaded onto a drone
+        :param wait_stage2: M-dimensional array, indicating whether a request is waiting to enter stage 2
+        :param wait_stage3: M-dimensional array, indicating whether a request is waiting to enter stage 3
+        :param courier_stage1_temp: Records the courier that completed stage 1 delivery for each order, to prevent the same courier from being used for both stage 1 and 3
         """
         self.N = N
         self.M = M
@@ -73,7 +73,8 @@ class MetaheuristicBase:
         self.rng = np.random.default_rng(120)
     
     def update_courier_location(self, courier_path, courier_id):
-        """更新路径，保证无操作时刻的位置和紧邻上一有操作时刻的位置相同"""
+        """Update paths to ensure that the position during idle time is 
+        the same as the position at the immediately preceding active time step"""
         prev_location = self.start_K[courier_id]
         for t in range(1, self.T + 1):
             if courier_path[t]['pickup1']:
@@ -92,7 +93,8 @@ class MetaheuristicBase:
                 courier_path[t]['location'] = prev_location
     
     def update_drone_location(self, drone_path, drone_id):
-        """更新路径，保证无操作时刻的位置和紧邻上一有操作时刻的位置相同"""
+        """Update paths to ensure that the position during idle time is 
+        the same as the position at the immediately preceding active time step"""
         prev_location = self.start_D[drone_id]
         for t in range(1, self.T + 1):
             if drone_path[t]['pickup'] or drone_path[t]['delivery']:
@@ -104,19 +106,19 @@ class MetaheuristicBase:
                 drone_path[t]['location'] = prev_location
 
     def update_courier_load(self, courier_path):
-        """更新courier的负载"""
+        """Update the load of couriers"""
         courier_path[0]['load'] = len(courier_path[0]['pickup1']) - len(courier_path[0]['delivery1']) + len(courier_path[0]['pickup2']) - len(courier_path[0]['delivery2']) 
         for t in range(1, self.T + 1):
             courier_path[t]['load'] = courier_path[t - 1]['load'] + len(courier_path[t]['pickup1']) - len(courier_path[t]['delivery1']) + len(courier_path[t]['pickup2']) - len(courier_path[t]['delivery2']) 
     
     def update_drone_load(self, drone_path):
-        """更新drone的负载"""
+        """Update the load of drones"""
         drone_path[0]['load'] = len(drone_path[0]['pickup']) - len(drone_path[0]['delivery'])
         for t in range(1, self.T + 1):
             drone_path[t]['load'] = drone_path[t - 1]['load'] + len(drone_path[t]['pickup']) - len(drone_path[t]['delivery'])
     
     def _update_all_vehicles(self, solution_K, solution_D):
-        """更新所有车辆的位置和负载"""
+        """Update the positions and loads of all vehicles"""
         for k in range(self.K):
             self.update_courier_location(solution_K[k], k)
             self.update_courier_load(solution_K[k])
@@ -126,10 +128,10 @@ class MetaheuristicBase:
     
     def check_constraints(self, solution_K, solution_D):
         """
-        检查解是否满足所有约束条件
-        返回 True 如果满足所有约束，否则返回 False
+        Check if the solution satisfies all constraints
+        Returns True if all constraints are satisfied, otherwise returns False
         """
-        # 1. 检查容量约束（快速，容易出问题）
+        # 1. Check capacity constraints
         for k in range(self.K):
             for t in range(self.T + 1):
                 if solution_K[k][t]['load'] < 0 or solution_K[k][t]['load'] > self.capacity[k]:
@@ -140,7 +142,7 @@ class MetaheuristicBase:
                 if solution_D[d][t]['load'] < 0 or solution_D[d][t]['load'] > 1:
                     return False
         
-        # 2. 检查初始位置约束（非常快速）
+        # 2. Check initial position constraints
         for k in range(self.K):
             if solution_K[k][0]['location'] != self.start_K[k] or solution_K[k][self.join_time_K[k]]['location'] != self.start_K[k]:
                 return False
@@ -148,7 +150,7 @@ class MetaheuristicBase:
             if solution_D[d][0]['location'] != self.start_D[d] or solution_D[d][self.join_time_D[d]]['location'] != self.start_D[d]:
                 return False
 
-        # 3. 检查请求唯一性（优化：提前退出，在计数时立即检查）
+        # 3. Check request uniqueness
         pickup1_count = [0] * self.M
         delivery1_count = [0] * self.M
         pickup2_count = [0] * self.M
@@ -186,7 +188,7 @@ class MetaheuristicBase:
                     if delivery_d_count[m] > 1:
                         return False
 
-        # 4. 检查位移约束（计算复杂，容易出问题）
+        # 4. Check displacement constraints
         for k in range(self.K):
             last_t = None
             for t in range(self.T + 1):
@@ -205,7 +207,7 @@ class MetaheuristicBase:
                             return False
                     last_t = t
 
-        # 5. 检查位置一致性约束（计算复杂，容易出问题）
+        # 5. Check location consistency constraints 
         for k in range(self.K):
             for t in range(self.T + 1):
                 for m in solution_K[k][t]['pickup1']:
@@ -233,27 +235,27 @@ class MetaheuristicBase:
                     if solution_D[d][t]['location'] != self.station2_req[m]:
                         return False
                     
-        # 6. 检查同一个courier不能处理同一请求的两个阶段
+        # 6. Check that the same courier cannot handle two stages of the same request
         for k in range(self.K):
             for t in range(self.T + 1):
                 for m in solution_K[k][t]['pickup2']:
                     if self.courier_stage1_temp[m] == k:
                         return False
 
-        # 7. 检查请求出现时间约束
+        # 7. Check request appearance time constraints
         for k in range(self.K):
             for t in range(self.T + 1):
                 for m in solution_K[k][t]['pickup1']:
                     if t < self.appear[m]:
                         return False
 
-        # 8. 检查车辆开始工作时间约束
+        # 8. Check vehicle start working time constraints
         for k in range(self.K):
             for t in range(self.join_time_K[k]):
                 if solution_K[k][t]['delivery1'] or solution_K[k][t]['delivery2']:
                     return False
                 elif solution_K[k][t]['pickup1'] or solution_K[k][t]['pickup2']:
-                    # 检查是不是预装载的请求，有不是的直接返回False
+                    # Check if they are pre-loaded requests, return False if any are not
                     if t == 0:
                         for m in solution_K[k][t]['pickup1']:
                             if not self.pre_load_K_stage1[k][m]:
@@ -269,7 +271,7 @@ class MetaheuristicBase:
                 if solution_D[d][t]['delivery']:
                     return False
                 elif solution_D[d][t]['pickup']:
-                    # 检查是不是预装载的请求，有不是的直接返回False
+                    # Check if they are pre-loaded requests, return False if any are not
                     if t == 0:
                         for m in solution_D[d][t]['pickup']:
                             if not self.pre_load_D[d][m]:
@@ -277,7 +279,7 @@ class MetaheuristicBase:
                     else:
                         return False
                 
-        # 9. 检查订单必须按照：Stage1 → Drone → Stage2 的顺序依次完成
+        # 9. Check that orders must be completed in the sequence: Stage1 → Drone → Stage2
         req_times = {m: [-1]*6 for m in range(self.M)}
         for k in range(self.K):
             for t in range(self.T + 1):
@@ -297,35 +299,31 @@ class MetaheuristicBase:
                 for m in solution_D[d][t]['delivery']:
                     req_times[m][3] = t
         
-        # 检查阶段顺序约束
+        # Check stage sequence constraints
         for m, times in req_times.items():
             t_pu1, t_de1, t_dr_pu, t_dr_de, t_pu2, t_de2 = times
-            # 检查阶段2（Drone）相对于阶段1（Stage1）的约束
-            # 如果Stage1有pickup1但没有delivery1，Drone不能有pickup和delivery
+            # Check constraints of Stage 2 (Drone) relative to Stage 1 (Stage1)
+            # If Stage1 has pickup1 but no delivery1, Drone cannot have pickup or delivery
             if t_pu1 != -1 and t_de1 == -1:
                 if t_dr_pu != -1 or t_dr_de != -1 or t_pu2 != -1 or t_de2 != -1:
-                    return False  # Stage1未完成delivery，Drone不能有任何操作
-            # 如果Stage1有delivery1记录，Drone的pickup必须晚于delivery1
+                    return False 
+            # If Stage1 has delivery1 record, Drone's pickup must be after delivery1
             elif t_de1 != -1:
                 if t_dr_pu != -1 and t_dr_pu < t_de1:
-                    return False  # Drone的pickup必须在Stage1的delivery1之后
-            # 检查阶段3（Stage2）相对于阶段2（Drone）的约束
-            # 如果Drone有pickup但没有delivery，Stage2不能有pickup2和delivery2
+                    return False 
+            # Check constraints of Stage 3 (Stage2) relative to Stage 2 (Drone)
+            # If Drone has pickup but no delivery, Stage2 cannot have pickup2 or delivery2
             if t_dr_pu != -1 and t_dr_de == -1:
                 if t_pu2 != -1 or t_de2 != -1:
-                    return False  # Drone未完成delivery，Stage2不能有任何操作
-            # 如果Drone有delivery记录，Stage2的pickup2必须晚于delivery
+                    return False 
+            # If Drone has delivery record, Stage2's pickup2 must be after delivery
             elif t_dr_de != -1:
                 if t_pu2 != -1 and t_pu2 < t_dr_de:
-                    return False  # Stage2的pickup2必须在Drone的delivery之后
-            # 加条件，有de就一定得有pu
-            
-
-            
+                    return False 
         return True
     
     def find_old_id(self, new_solution_K, new_solution_D, m):
-        """找到请求m在各个阶段的旧车辆ID"""
+        """Find the old vehicle IDs of request m in each stage"""
         old_k1, old_d, old_k2 = -1, -1, -1
         for k in range(self.K):
             for t in range(self.T + 1):
@@ -346,7 +344,7 @@ class MetaheuristicBase:
         return old_k1, old_d, old_k2
     
     def _remove_request_from_courier(self, solution_K, m, pickup_key, delivery_key):
-        """通用方法：从courier路径中移除请求"""
+        """General method: Remove a request from a courier's route"""
         old_k = -1
         for k in range(self.K):
             for t in range(self.T + 1):
@@ -359,7 +357,7 @@ class MetaheuristicBase:
         return old_k
     
     def _remove_request_from_drone(self, solution_D, m):
-        """通用方法：从drone路径中移除请求"""
+        """General method: Remove a request from a drone's route"""
         old_d = -1
         for d in range(self.D):
             for t in range(self.T + 1):
@@ -372,19 +370,19 @@ class MetaheuristicBase:
         return old_d
     
     def remove_stage1(self, new_solution_K, new_solution_D, m):
-        """移除请求m的阶段1操作"""
+        """Remove Stage 1 operations for request m"""
         return self._remove_request_from_courier(new_solution_K, m, 'pickup1', 'delivery1')
     
     def remove_stage2(self, new_solution_K, new_solution_D, m):
-        """移除请求m的阶段2操作"""
+        """Remove Stage 2 operations for request m"""
         return self._remove_request_from_drone(new_solution_D, m)
         
     def remove_stage3(self, new_solution_K, new_solution_D, m):
-        """移除请求m的阶段3操作"""
+        """Remove Stage 3 operations for request m"""
         return self._remove_request_from_courier(new_solution_K, m, 'pickup2', 'delivery2')
 
     def reassign_stage1(self, new_solution_K, new_solution_D, m, end_time):
-        """重新分配请求m的阶段1"""
+        """Reassign Stage 1 for request m"""
         old_k1 = self.remove_stage1(new_solution_K, new_solution_D, m)
         if old_k1 != -1 and self.pre_load_K_stage1[old_k1][m]:
             k = old_k1
@@ -403,7 +401,7 @@ class MetaheuristicBase:
                 new_solution_K[k][t_delivery]['delivery1'].append(m)
             
     def reassign_stage2(self, new_solution_K, new_solution_D, m, end_time):
-        """重新分配请求m的阶段2"""
+        """Reassign Stage 2 for request m"""
         old_d = self.remove_stage2(new_solution_K, new_solution_D, m)
         if old_d != -1 and self.pre_load_D[old_d][m]:
             d = old_d
@@ -428,7 +426,7 @@ class MetaheuristicBase:
                 new_solution_D[d][t_delivery]['delivery'].append(m)
         
     def reassign_stage3(self, new_solution_K, new_solution_D, m, end_time):
-        """重新分配请求m的阶段3"""
+        """Reassign Stage 3 for request m"""
         old_k2 = self.remove_stage3(new_solution_K, new_solution_D, m)
         if old_k2 != -1 and self.pre_load_K_stage3[old_k2][m]:
             k = old_k2
@@ -453,7 +451,7 @@ class MetaheuristicBase:
                 new_solution_K[k][t_delivery]['delivery2'].append(m)
     
     def find_pickup_d_time(self, solution_D, m):
-        """找到请求m的阶段2开始时间"""
+        """Find the start time of Stage 2 for request m"""
         for d in range(self.D):
             for t in range(self.T + 1):
                 if m in solution_D[d][t]['pickup']:
@@ -461,7 +459,7 @@ class MetaheuristicBase:
         return None
 
     def find_pickup2_time(self, solution_K, m):
-        """找到请求m的阶段3开始时间"""
+        """Find the start time of Stage 3 for request m"""
         for k in range(self.K):
             for t in range(self.T + 1):
                 if m in solution_K[k][t]['pickup2']:
@@ -469,7 +467,7 @@ class MetaheuristicBase:
         return None
     
     def find_delivery1_time(self, solution_K, m):
-        """找到请求m的阶段1完成时间"""
+        """Find the completion time of Stage 1 for request m"""
         if self.wait_stage2[m]:
             return 0
         for k in range(self.K):
@@ -479,7 +477,7 @@ class MetaheuristicBase:
         return None
 
     def find_delivery_d_time(self, solution_D, m):
-        """找到请求m的阶段2完成时间"""
+        """Find the completion time of Stage 2 for request m"""
         if self.wait_stage3[m]:
             return 0
         for d in range(self.D):
@@ -489,7 +487,7 @@ class MetaheuristicBase:
         return None
     
     def find_delivery2_time(self, solution_K, m):
-        """找到请求m的阶段3完成时间"""
+        """Find the completion time of Stage 3 for request m"""
         for k in range(self.K):
             for t in range(self.T + 1):
                 if m in solution_K[k][t]['delivery2']:
@@ -497,8 +495,8 @@ class MetaheuristicBase:
         return None
 
     def initial_solution(self):
-        """生成初始解"""
-        # 初始解：随机分配请求给车辆
+        """Generate initial solution"""
+        # Initial solution: randomly assign requests to vehicles
         solution_K = []
         solution_D = []
         for k in range(self.K):
@@ -513,7 +511,7 @@ class MetaheuristicBase:
                 path_D.append({'location': self.start_D[d], 'pickup': [], 'delivery': [], 'load': 0})
             solution_D.append(path_D)
         
-        # 处理预装载的请求，记录为 0 时刻被车辆 k pickup
+        # Process pre-loaded requests, record as picked up by vehicle k at time 0
         for m in range(self.M):
             for k in range(self.K):
                 if self.pre_load_K_stage1[k][m]:
@@ -530,7 +528,7 @@ class MetaheuristicBase:
                 self.req_cur_stage[m] = 1
             elif self.wait_stage3[m]:
                 self.req_cur_stage[m] = 2
-        # 更新位置和负载
+        # Update positions and loads of all vehicles
         self._update_all_vehicles(solution_K, solution_D)
         
         if self.check_constraints(solution_K, solution_D):
@@ -540,8 +538,8 @@ class MetaheuristicBase:
     
     def _convert_solution_to_output(self, best_solution_K, best_solution_D):
         """
-        将解转换为输出格式
-        返回: (_pickup1, _pickup2, _pickup_d, _location_k, _location_d)
+        Convert solution to output format
+        Returns: (_pickup1, _pickup2, _pickup_d, _location_k, _location_d)
         """
         _pickup1 = np.zeros((self.K, self.M, self.T + 1), dtype=bool)
         _pickup2 = np.zeros((self.K, self.M, self.T + 1), dtype=bool)
@@ -585,13 +583,13 @@ class MetaheuristicBase:
     
     def _print_solution(self, best_solution_K, best_solution_D, best_obj, is_genetic=False):
         """
-        打印解的结果
-        :param best_solution_K: 最佳解的courier路径
-        :param best_solution_D: 最佳解的drone路径
-        :param best_obj: 最佳目标函数值
-        :param is_genetic: 是否为遗传算法（已改为直接使用目标函数值，不再需要取对数）
+        Print solution results
+        :param best_solution_K: Courier routes of the best solution
+        :param best_solution_D: Drone routes of the best solution
+        :param best_obj: Best objective function value
+        :param is_genetic: Whether it is a genetic algorithm (modified to directly use objective function value, no need to take logarithm)
         """
-        # 现在遗传算法和模拟退火都直接使用目标函数值，统一打印
+        # Now both genetic algorithm and simulated annealing directly use objective function value, unified printing
         print("Best Objective Value:", best_obj)
         
         print("=======================Request Result=======================")

@@ -6,31 +6,31 @@ from .simulated_annealing import SimulatedAnnealing
 class CPSAT(cp_model.CpModel):
     def __init__(self, N, M, K, D, T, start_K, start_D, capacity, join_time_K, join_time_D, dist, cost_K, cost_D, from_req, to_req, station1_req, station2_req, appear, value, penalty, pre_load_K_stage1, pre_load_K_stage3, pre_load_D, wait_stage2, wait_stage3, drone_speed_ratio=4.0, courier_stage1_temp=None, objective_scale=1., env_args=None, **kwargs):
         """
-        :param N: 节点数
-        :param M: 请求数
-        :param K: courier数
-        :param D: drone数
-        :param T: 时间帧数
-        :param start_K: 每个courier的起点
-        :param start_D: 每个drone的起点
-        :param capacity: 每辆车的容量
-        :param join_time_K: 每个courier开始工作的时间，use for courier whose time_left != 0
-        :param join_time_D: 每个drone开始工作的时间，use for drone whose time_left != 0
-        :param dist: 距离矩阵
-        :param cost: 花费矩阵
-        :param from_req: 每个请求的起点
-        :param to_req: 每个请求的终点
-        :param station1_req: 每个请求的station1
-        :param station2_req: 每个请求的station2
-        :param appear: 每个请求的出现时间
-        :param value: 每个请求的价值
-        :param penalty: 每个请求的惩罚
-        :param pre_load_K_stage1: K x M，表示请求是否已经在stage1装载在了courier上
-        :param pre_load_K_stage3: K x M，表示请求是否已经在stage3装载在了courier上
-        :param pre_load_D: D x M，表示请求是否已经装载在了drone上
-        :param wait_stage2: M，表示请求是否在等待进入stage2
-        :param wait_stage3: M，表示请求是否在等待进入stage3
-        :courier_stage1_temp: 记录完成每个订单stage1配送的courier，为了防止stage1和3使用同一个courier
+        :param N: Number of nodes
+        :param M: Number of requests/orders
+        :param K: Number of couriers
+        :param D: Number of drones
+        :param T: Number of time frames
+        :param start_K: Starting point of each courier
+        :param start_D: Starting point of each drone
+        :param capacity: Capacity of each vehicle
+        :param join_time_K: Start working time of each courier, used for couriers with time_left != 0
+        :param join_time_D: Start working time of each drone, used for drones with time_left != 0
+        :param dist: Distance matrix
+        :param cost: Cost matrix
+        :param from_req: Starting point of each request
+        :param to_req: End point of each request
+        :param station1_req: Station 1 for each request
+        :param station2_req: Station 2 for each request
+        :param appear: Appearance time of each request
+        :param value: Value of each request
+        :param penalty: Penalty for each request
+        :param pre_load_K_stage1: K x M matrix, indicating whether a request has been loaded onto a courier in stage 1
+        :param pre_load_K_stage3: K x M matrix, indicating whether a request has been loaded onto a courier in stage 3
+        :param pre_load_D: D x M matrix, indicating whether a request has been loaded onto a drone
+        :param wait_stage2: M-dimensional array, indicating whether a request is waiting to enter stage 2
+        :param wait_stage3: M-dimensional array, indicating whether a request is waiting to enter stage 3
+        :param courier_stage1_temp: Records the courier that completed stage 1 delivery for each order, to prevent the same courier from being used for both stage 1 and 3
         """
         super().__init__()
 
@@ -327,23 +327,8 @@ class CPSAT(cp_model.CpModel):
             self.AddAtMostOne(vars_delivery2)
             self.AddAtMostOne(vars_pickup_d)
             self.AddAtMostOne(vars_delivery_d)
-                   
-            # self.Add(sum(self.pickup1[(k, m, t)] for k in range(self.K) for t in range(-1, self.T + 1)) <= 1)
-            # self.Add(sum(self.delivery1[(k, m, t)] for k in range(self.K) for t in range(-1, self.T + 1)) <= 1)
-            # self.Add(sum(self.pickup2[(k, m, t)] for k in range(self.K) for t in range(-1, self.T + 1)) <= 1)
-            # self.Add(sum(self.delivery2[(k, m, t)] for k in range(self.K) for t in range(-1, self.T + 1)) <= 1)
-            # self.Add(sum(self.pickup_d[(d, m, t)] for d in range(self.D) for t in range(-1, self.T + 1)) <= 1)
-            # self.Add(sum(self.delivery_d[(d, m, t)] for d in range(self.D) for t in range(-1, self.T + 1)) <= 1)
 
-        # 约束2：若某个request被delivery， 则必须在之前的某个时间被同一辆车pickup
-        # for t in range(-1, self.T + 1):  
-        #     for m in range(self.M):
-        #         for k in range(self.K):
-        #             self.Add(sum(self.pickup1[(k, m, _t)] for _t in range(-1, t)) == 1).OnlyEnforceIf(self.delivery1[(k, m, t)])
-        #             self.Add(sum(self.pickup2[(k, m, _t)] for _t in range(-1, t)) == 1).OnlyEnforceIf(self.delivery2[(k, m, t)])
-        #         for d in range(self.D):
-        #             self.Add(sum(self.pickup_d[(d, m, _t)] for _t in range(-1, t)) == 1).OnlyEnforceIf(self.delivery_d[(d, m, t)])
-        
+        # 约束2：若某个request被delivery， 则必须在之前的某个时间被同一辆车pickup 
         for t in range(-1, self.T + 1):  
             for m in range(self.M):
                 for k in range(self.K):
@@ -354,19 +339,8 @@ class CPSAT(cp_model.CpModel):
                 for d in range(self.D):
                     prior_pickup_d = [self.pickup_d[(d, m, _t)] for _t in range(-1, t)]
                     self.AddBoolOr(prior_pickup_d).OnlyEnforceIf(self.delivery_d[(d, m, t)])             
-        
-        # 约束3：每个时刻每辆车的load不能超过capacity
-        # 注意：变量定义时已经设置了上界，此约束在技术上冗余，但保留以增强可读性
-        # 如果追求性能，可以注释掉以下约束（变量定义已保证 load_k <= capacity[k]）
-        # for k in range(self.K):
-        #     for t in range(self.T + 1):
-        #         self.Add(self.load_k[(k, t)] <= self.capacity[k])
-        
-        # for d in range(self.D):
-        #     for t in range(self.T + 1):
-        #         self.Add(self.load_d[(d, t)] <= 1)
 
-        # 约束4：每辆车，任意两次操作的时间间隔应该大于两地的距离（第一种写法没考虑初始位置到第一次操作的距离，直接使用location枚举效率更高）
+        # 约束3：每辆车，任意两次操作的时间间隔应该大于两地的距离（第一种写法没考虑初始位置到第一次操作的距离，直接使用location枚举效率更高）
         for k in range(self.K):
             for t in range(self.T + 1):
                 for t1 in range(t + 1, self.T + 1):
@@ -387,7 +361,7 @@ class CPSAT(cp_model.CpModel):
                     self.AddElement(index, self.dist_d, dis)
                     self.Add((t1 - t) >= dis).OnlyEnforceIf(self.no_action_d[(d, t)].Not(), self.no_action_d[(d, t1)].Not())
         
-        # 约束5：pickup的时间应该在request出现之后
+        # 约束4：pickup的时间应该在request出现之后
         for k in range(self.K):
             for m in range(self.M):
                 for t in range(-1, self.T + 1):
@@ -399,19 +373,12 @@ class CPSAT(cp_model.CpModel):
                 for t in range(-1, self.T + 1):
                     self.Add(t >= self.appear[m]).OnlyEnforceIf(self.pickup_d[(d, m, t)])
 
-        # 约束6：服务request的courier不能是同一个
+        # 约束5：服务request的courier不能是同一个
         for m in range(self.M):
             for k in range(self.K):
                 self.Add(sum(self.pickup2[(k, m, t)] for t in range(-1, self.T + 1)) == 0).OnlyEnforceIf(self.courier_stage1_temp[(k, m)])
-        # 约束7：服务要一个阶段一个阶段完成
+        # 约束6：服务要一个阶段一个阶段完成
         # 处理预分配或已完成部分阶段的请求
-        # for m in range(self.M):
-        #     for i in range(2):
-        #         self.Add(sum(self.pickup1[(k, m, t)] for t in range(-1, self.T + 1) for k in range(self.K)) == 0).OnlyEnforceIf(self.req_cur_stage[(m, i)])
-        #         self.Add(sum(self.delivery1[(k, m, t)] for t in range(-1, self.T + 1) for k in range(self.K)) == 0).OnlyEnforceIf(self.req_cur_stage[(m, i)])
-        #         if i > 0:
-        #             self.Add(sum(self.pickup_d[(d, m, t)] for t in range(-1, self.T + 1) for d in range(self.D)) == 0).OnlyEnforceIf(self.req_cur_stage[(m, i)])
-        #             self.Add(sum(self.delivery_d[(d, m, t)] for t in range(-1, self.T + 1) for d in range(self.D)) == 0).OnlyEnforceIf(self.req_cur_stage[(m, i)])
         for m in range(self.M):
             for i in range(2):
                 if i == 0:
@@ -485,8 +452,7 @@ class CPSAT(cp_model.CpModel):
             # solver.parameters.min_num_lns_workers = 0
             # solver.parameters.log_search_progress = True
             status = solver.Solve(self)
-            # 打印具体的状态码和名称，帮助诊断
-            print(f"Solver returned status: {solver.StatusName(status)} ({status})")
+            # print(f"Solver returned status: {solver.StatusName(status)} ({status})")
 
             if status in [cp_model.OPTIMAL, cp_model.FEASIBLE] or max_time_in_seconds >= 600:
                 break
@@ -494,9 +460,8 @@ class CPSAT(cp_model.CpModel):
                 max_time_in_seconds *= 2
                 print(f"FEASIBLE solution haven't found, try to search {max_time_in_seconds} seconds.")
 
-        # assert status in [cp_model.OPTIMAL, cp_model.FEASIBLE], "怎么可能无解呢"
         if status not in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
-            print("无解!!")
+            print("No solution!!")
         _pickup1 = np.zeros((self.K, self.M, self.T + 1), dtype=bool)
         _pickup2 = np.zeros((self.K, self.M, self.T + 1), dtype=bool)
         _pickup_d = np.zeros((self.D, self.M, self.T + 1), dtype=bool)
@@ -531,7 +496,6 @@ class CPSAT(cp_model.CpModel):
                 _location_k[self.join_time_K[k]] = self.start_K[k]
             for d in range(self.D):
                 _location_d[self.join_time_D[d]] = self.start_D[d]
-        # assert(False)
         if not show:
             return (_pickup1, _pickup2, _pickup_d, _location_k, _location_d)
     
