@@ -6,12 +6,8 @@ from algorithms.pointer_transformer_policy import PointerTransformerPolicy
 
 
 class MATTrainer:
-    def __init__(self,
-                 args,
-                 policy,
-                 device=torch.device("cpu")):
+    def __init__(self, args, policy, device=torch.device("cpu")):
         self.all_args = args
-
         self.device = device
         self.tpdv = dict(dtype=torch.float32, device=device)
         self.policy: PointerTransformerPolicy = policy

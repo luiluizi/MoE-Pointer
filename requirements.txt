@@ -1,21 +1,13 @@
-numpy
-torch
+dm_tree==0.1.7
 gymnasium
-dm-tree
-wandb
-pyyaml
-python-geohash
-pandas
-tensorboardX
-
-conda create -n VRP python=3.9 \
-  numpy \
-  pytorch torchvision torchaudio cudatoolkit=11.7 -c pytorch \
-  gymnasium \
-  dm-tree -c conda-forge \
-  wandb -c conda-forge \
-  pyyaml \
-  python-geohash \
-  -c conda-forge
-
-  conda create -n drone python=3.10 -y
+matplotlib==3.10.8
+numpy==2.4.2
+ortools==9.14.6206
+pandas==3.0.1
+PyYAML==6.0.3
+setproctitle==1.2.3
+tensorboard==2.20.0
+tensorboardX==2.6.4
+torch==2.5.1
+wandb==0.25.0
+python-geohash==0.8.5

@@ -2,17 +2,9 @@
 __pycache__
 .mujoco
 .vscode
-mujoco210-linux-x86_64.tar.gz
-data/data_*
 results/
-111/
-ssss/
-ss/
-no/
-baseline/
 train_log/
 test_log/
 data/LADE/delivery/
 data/LADE/pickup/
 data/LADE/processed/
-images/

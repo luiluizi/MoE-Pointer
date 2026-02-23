@@ -6,7 +6,7 @@ import torch
 from tensorboardX import SummaryWriter
 
 from utils.replay_buffer import ReplayBuffer
-from algorithms.mat_trainer import MATTrainer as TrainAlgo
+from algorithms.mat_trainer import MATTrainer
 from algorithms.pointer_transformer_policy import PointerTransformerPolicy
 from algorithms.rolling_horizon_policy import RollingHorizonPolicy
 from envs.env import DroneTransferEnv
@@ -75,10 +75,11 @@ class DMPDPRunner:
 
         if self.model_path is not None:
             self.restore(self.model_path)
-
+        # Hot setting
+        if self.env_args['scenario'] == 'lade-sh':
+            self.all_args.clip_param = 0.15
         # algorithm
-        self.trainer = TrainAlgo(self.all_args, self.policy, device=self.device)
-        
+        self.trainer = MATTrainer(self.all_args, self.policy, device=self.device)
         # buffer
         self.buffer = ReplayBuffer(self.all_args, self.envs, self.device)
 
@@ -89,19 +90,10 @@ class DMPDPRunner:
 
         train_episode_rewards = torch.zeros(self.n_rollout_threads, device=self.device)
         done_episodes_rewards = [] # heterogeneous
-
-        one_episode_stage1_rewards = torch.zeros(self.n_rollout_threads, device=self.device)
-        done_episode_stage1_rewards = []
-        one_episode_stage2_rewards = torch.zeros(self.n_rollout_threads, device=self.device)
-        done_episode_stage2_rewards = []
-        one_episode_stage3_rewards = torch.zeros(self.n_rollout_threads, device=self.device)
-        done_episode_stage3_rewards = []
         
         done_episode_stage1_ratio = []
         done_episode_stage2_ratio = []
         done_episode_stage3_ratio = []
-        
-        
         max_aver_reward = None
 
         for episode in range(n_episode_batch):
@@ -119,25 +111,14 @@ class DMPDPRunner:
                 if dones.any():
                     assert dones.all()
                     obs = self.envs.reset()
-
                 train_episode_rewards += rewards
-                one_episode_stage1_rewards += infos["stage1_rewards"]
-                one_episode_stage2_rewards += infos["stage2_rewards"]
-                one_episode_stage3_rewards += infos["stage3_rewards"]
                 
                 if dones.any():
                     done_episodes_rewards.append(train_episode_rewards[dones].clone())
-                    done_episode_stage1_rewards.append(one_episode_stage1_rewards[dones].clone())
-                    done_episode_stage2_rewards.append(one_episode_stage2_rewards[dones].clone())
-                    done_episode_stage3_rewards.append(one_episode_stage3_rewards[dones].clone())
                     done_episode_stage1_ratio.append(infos["global_finish_stage1_ratio"][dones].clone())
                     done_episode_stage2_ratio.append(infos["global_finish_stage2_ratio"][dones].clone())
                     done_episode_stage3_ratio.append(infos["global_finish_ratio"][dones].clone())
 
-                one_episode_stage1_rewards[dones] = 0
-                one_episode_stage2_rewards[dones] = 0
-                one_episode_stage3_rewards[dones] = 0
-                ###########
                 train_episode_rewards[dones] = 0
                 
                 data = obs, rewards, dones, infos, \
@@ -157,7 +138,6 @@ class DMPDPRunner:
             # save model
             if ((episode + 1) % self.save_interval == 0 or episode == n_episode_batch - 1):
                 self.save(episode)
-
             # log information
             if (episode + 1) % self.log_interval == 0:
                 end = time.time()
@@ -174,19 +154,10 @@ class DMPDPRunner:
                     aver_episode_rewards = torch.cat(done_episodes_rewards).mean().item()
                     self.logger.info(f"some episodes done, average rewards: {aver_episode_rewards}")
                     self.writter.add_scalars("train_episode_rewards", {"aver_rewards": aver_episode_rewards}, total_num_steps)
-                    
-                    #################
-                    aver_episode_stage1_rewards = torch.cat(done_episode_stage1_rewards).mean().item()
-                    aver_episode_stage2_rewards = torch.cat(done_episode_stage2_rewards).mean().item()
-                    aver_episode_stage3_rewards = torch.cat(done_episode_stage3_rewards).mean().item()
+
                     aver_episode_stage1_ratio = torch.cat(done_episode_stage1_ratio).mean().item()
                     aver_episode_stage2_ratio = torch.cat(done_episode_stage2_ratio).mean().item()
                     aver_episode_stage3_ratio = torch.cat(done_episode_stage3_ratio).mean().item()
-                    
-                    self.logger.info(f"some episodes done, average stage1 rewards: {aver_episode_stage1_rewards}, stage2: {aver_episode_stage2_rewards}, stage3: {aver_episode_stage3_rewards}")
-                    self.writter.add_scalars("train_episode_stage1_rewards", {"aver_rewards": aver_episode_stage1_rewards}, total_num_steps)
-                    self.writter.add_scalars("train_episode_stage2_rewards", {"aver_rewards": aver_episode_stage2_rewards}, total_num_steps)
-                    self.writter.add_scalars("train_episode_stage3_rewards", {"aver_rewards": aver_episode_stage3_rewards}, total_num_steps)
                     
                     self.logger.info(f"some episodes done, average stage1 ratio: {aver_episode_stage1_ratio}, stage2: {aver_episode_stage2_ratio}, stage3: {aver_episode_stage3_ratio}")
                     self.writter.add_scalars("train_episode_stage1_ratio", {"aver_ratio": aver_episode_stage1_ratio}, total_num_steps)
@@ -194,9 +165,6 @@ class DMPDPRunner:
                     self.writter.add_scalars("train_episode_stage3_ratio", {"aver_ratio": aver_episode_stage3_ratio}, total_num_steps)
                     ###################
                     done_episodes_rewards = []
-                    done_episode_stage1_rewards = []
-                    done_episode_stage2_rewards = []
-                    done_episode_stage3_rewards = []
                     
                     done_episode_stage1_ratio = []
                     done_episode_stage2_ratio = []
@@ -240,7 +208,6 @@ class DMPDPRunner:
         self.buffer.insert(obs, rnn_states, rnn_states_critic, actions, action_log_probs, values, rewards, ~dones)
 
     def log_train(self, train_infos, total_num_steps):
-        # train_infos["average_step_rewards"] = self.buffer.rewards.mean().item()
         for k, v in train_infos.items():
             if self.use_wandb:
                 wandb.log({k: v}, step=total_num_steps)
@@ -265,11 +232,7 @@ class DMPDPRunner:
         eval_episode = 0
         eval_episode_rewards = []
         
-        eval_episode_stage1_rewards = []
-        eval_episode_stage2_rewards = []
         eval_episode_stage3_rewards = []
-        one_episode_stage1_rewards = torch.zeros(self.eval_envs.batch_size, device=self.device)
-        one_episode_stage2_rewards = torch.zeros(self.eval_envs.batch_size, device=self.device)
         one_episode_stage3_rewards = torch.zeros(self.eval_envs.batch_size, device=self.device)
         
         eval_episode_courier_cost = []
@@ -313,8 +276,6 @@ class DMPDPRunner:
             eval_obs, eval_rewards, eval_dones, eval_infos = self.eval_envs.step(eval_actions)
             eval_episode += eval_dones.sum()
             one_episode_rewards += eval_rewards
-            one_episode_stage1_rewards += eval_infos["stage1_rewards"]
-            one_episode_stage2_rewards += eval_infos["stage2_rewards"]
             one_episode_stage3_rewards += eval_infos["stage3_rewards"]
             one_episode_courier_cost += eval_infos["courier_cost"]
             one_episode_drone_cost += eval_infos["drone_cost"]
@@ -324,8 +285,6 @@ class DMPDPRunner:
                 eval_episode_serve_ratio.append(eval_infos["global_finish_ratio"][eval_dones].clone())
                 eval_episode_serve_stage1_ratio.append(eval_infos["global_finish_stage1_ratio"][eval_dones].clone())
                 eval_episode_serve_stage2_ratio.append(eval_infos["global_finish_stage2_ratio"][eval_dones].clone())
-                eval_episode_stage1_rewards.append(one_episode_stage1_rewards[eval_dones].clone())
-                eval_episode_stage2_rewards.append(one_episode_stage2_rewards[eval_dones].clone())
                 eval_episode_stage3_rewards.append(one_episode_stage3_rewards[eval_dones].clone())
                 eval_episode_courier_cost.append(one_episode_courier_cost[eval_dones].clone())
                 eval_episode_drone_cost.append(one_episode_drone_cost[eval_dones].clone())
@@ -339,9 +298,6 @@ class DMPDPRunner:
                 eval_episode_serve_ratio_mean = torch.cat(eval_episode_serve_ratio).mean().item()
                 eval_episode_serve_stage1_ratio_mean = torch.cat(eval_episode_serve_stage1_ratio).mean().item()
                 eval_episode_serve_stage2_ratio_mean = torch.cat(eval_episode_serve_stage2_ratio).mean().item()
-                
-                eval_episode_stage1_rewards_mean = torch.cat(eval_episode_stage1_rewards).mean().item()
-                eval_episode_stage2_rewards_mean = torch.cat(eval_episode_stage2_rewards).mean().item()
                 eval_episode_stage3_rewards_mean = torch.cat(eval_episode_stage3_rewards).mean().item()
                 
                 eval_episode_courier_cost_mean = torch.cat(eval_episode_courier_cost).mean().item()
@@ -358,10 +314,8 @@ class DMPDPRunner:
 
                 if not self.all_args.only_eval:
                     self.log_env(eval_env_infos, total_num_steps)
-                # self.logger.info(f"eval_average_episode_rewards: {eval_episode_rewards_mean}. eval_episode_serve_ratio_mean: {eval_episode_serve_ratio_mean:.4f}. eval_time: {eval_time:.4f}")
                 self.logger.info(f"eval_time: {eval_time:.4f}. eval_average_episode_rewards: {eval_episode_rewards_mean:.4f}.")
                 self.logger.info(f"eval_episode_serve_stage1_ratio_mean: {eval_episode_serve_stage1_ratio_mean:.4f}. eval_episode_serve_stage2_ratio_mean: {eval_episode_serve_stage2_ratio_mean:.4f}. eval_episode_serve_ratio_mean: {eval_episode_serve_ratio_mean:.4f}.")
-                # self.logger.info(f"stage1_rewards_mean: {eval_episode_stage1_rewards_mean:.4f}. stage2_rewards_mean: {eval_episode_stage2_rewards_mean:.4f}. stage3_rewards_mean: {eval_episode_stage3_rewards_mean:.4f}")
                 self.logger.info(f"courier_cost_mean: {eval_episode_courier_cost_mean:.4f}. drone_cost_mean: {eval_episode_drone_cost_mean:.4f}. obj_mean: {eval_episode_stage3_rewards_mean:.4f} . profit_mean: {eval_episode_profit_mean:.4f}")
                 break
         return eval_episode_rewards_mean
