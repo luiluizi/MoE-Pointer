@@ -66,9 +66,6 @@ def get_config():
     parser.add_argument("--use_popart", action='store_true', default=False, help="by default False, use PopArt to normalize rewards.")
     parser.add_argument("--not_use_valuenorm", action='store_true', default=False, help="don't use running mean and std to normalize rewards.")
     
-    parser.add_argument("--not_use_heur_req", action="store_true", default=False, help="don't use request heuristic prob.")
-    parser.add_argument("--use_nearest_station", action="store_true", default=False, help="use nearest station assignment.")
-    parser.add_argument("--not_use_heur_veh", action="store_true", default=False, help="don't use vehicle heuristic prob.")
     parser.add_argument("--not_use_ar", action="store_true", default=False, help="don't use auto regressive.")
     parser.add_argument("--not_use_relation", action="store_true", default=False, help="don't use relation-aware attention.")
     parser.add_argument("--not_use_node_emb", action="store_true", default=False, help="don't use node embedding for real dataset")
