@@ -34,7 +34,7 @@ python train_dmpdp.py --env_config_path envs/config/synthetic_small.yaml --num_e
 ```
 
 ```
-python train_dmpdp.py --env_config_path envs/config/synthetic_large.yaml --num_episodes 8192 --max_grad_norm 2 --n_rollout_threads 64 --mini_batch_size 64 --lr 3e-5 --eval_episodes 64
+python train_dmpdp.py --env_config_path envs/config/synthetic_large.yaml --num_episodes 8192 --max_grad_norm 2 --n_rollout_threads 64 --mini_batch_size 64 --lr 3e-5 --eval_episodes 64 --clip_param 0.1
 ```
 
 For the real-world dataset, use the following command:
